@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 pub struct WorkspaceState(pub Mutex<Option<String>>);
 
@@ -47,8 +47,9 @@ pub async fn generate(
         .or_else(|| state.0.lock().unwrap().clone())
         .unwrap_or_else(|| "~".to_string());
 
-    // Build system prompt
-    let system_prompt = format!(
+    // Build system prompt. Prefixed with `_` until the provider registry consumes
+    // it (see TODO below); keeping it avoids re-deriving the prompt later.
+    let _system_prompt = format!(
         "You are ADE (Agentic Development Environment) by GwenLand.\n\
          You are an agentic coding assistant. The user will describe what they want to create or build.\n\
          Current workspace: {workspace}\n\
