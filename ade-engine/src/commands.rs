@@ -47,17 +47,28 @@ pub async fn generate(
         .or_else(|| state.0.lock().unwrap().clone())
         .unwrap_or_else(|| "~".to_string());
 
-    // Build system prompt. Prefixed with `_` until the provider registry consumes
-    // it (see TODO below); keeping it avoids re-deriving the prompt later.
-    let _system_prompt = format!(
+    // Build system prompt, then append the memory block (GWEN-484).
+    let mut system_prompt = format!(
         "You are ADE (Agentic Development Environment) by GwenLand.\n\
          You are an agentic coding assistant. The user will describe what they want to create or build.\n\
          Current workspace: {workspace}\n\
          Be concise, practical, and agentic. Decide what needs to be done and do it.\n\
          Respond in markdown.",
     );
+    let memory = crate::memory::context_block();
+    if !memory.is_empty() {
+        system_prompt.push_str("\n\n");
+        system_prompt.push_str(&memory);
+    }
 
-    // TODO: integrate dengan GwenLand provider registry
+    // TODO: integrate dengan GwenLand provider registry. Until the provider
+    // consumes `system_prompt`, keep the assembled prompt observable so the
+    // memory injection (GWEN-484) is verifiable end-to-end.
+    eprintln!(
+        "[generate] system prompt assembled ({} bytes)",
+        system_prompt.len()
+    );
+
     // Untuk sekarang, emit placeholder streaming
     let tokens = vec![
         "Got it! ", "Let me ", "work on ", "that for ", "you...\n\n",
@@ -70,5 +81,14 @@ pub async fn generate(
     }
 
     app.emit("ade://done", "").map_err(|e| e.to_string())?;
+
+    // Post-task reflection (GWEN-483). Non-fatal: never fail the task over a
+    // memory write. The stub run has no real error/correction signal yet, so
+    // this records nothing until the provider surfaces one.
+    let outcome = crate::memory::TaskOutcome::default();
+    if let Err(e) = crate::memory::reflect(&outcome) {
+        eprintln!("Warning: reflection failed: {e}");
+    }
+
     Ok(())
 }
