@@ -4,6 +4,7 @@
   import EyeSlashIcon from "phosphor-svelte/lib/EyeSlashIcon";
   import XIcon from "phosphor-svelte/lib/XIcon";
   import CheckCircleIcon from "phosphor-svelte/lib/CheckCircleIcon";
+  import ProviderIcon from "./ProviderIcon.svelte";
   import {
     listProviders,
     getApiKey,
@@ -81,6 +82,7 @@
         {#snippet keyRow(row: Row)}
           <div class="row">
             <div class="label">
+              <span class="pico"><ProviderIcon provider={row.provider.id} size={15} /></span>
               <span class="name">{row.provider.name}</span>
               {#if row.saved}
                 <span class="badge" title="Configured">
@@ -218,9 +220,16 @@
   .label {
     display: flex;
     align-items: center;
-    gap: 5px;
-    width: 150px;
+    gap: 7px;
+    width: 160px;
     flex-shrink: 0;
+  }
+
+  .pico {
+    display: flex;
+    flex-shrink: 0;
+    color: var(--foreground);
+    opacity: 0.85;
   }
 
   .name {

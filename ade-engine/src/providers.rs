@@ -222,19 +222,52 @@ static REGISTRY: &[Provider] = &[
             },
         ],
     },
+    // Z.ai (Zhipu AI, formerly "Ziphu"). Merges GWEN-464 into the existing
+    // GLM/Z.AI provider — they are the same company and API. OpenAI-compatible
+    // endpoint; models + pricing from https://docs.z.ai/guides/overview/pricing.
     Provider {
-        id: "glm",
-        name: "GLM / Z.AI",
-        api_key_env: "GLM_API_KEY",
-        base_url: "https://open.bigmodel.cn/api/paas/v4",
+        id: "zai",
+        name: "Z.ai (GLM)",
+        api_key_env: "ZAI_API_KEY",
+        base_url: "https://api.z.ai/api/openai/v1",
         kind: ProviderKind::OpenAiCompat,
-        models: &[Model {
-            id: "glm-4-plus",
-            display_name: "GLM-4-Plus",
-            context_window: 128_000,
-            input_price: 0.6,
-            output_price: 0.6,
-        }],
+        models: &[
+            Model {
+                id: "glm-5.2",
+                display_name: "GLM-5.2",
+                context_window: 200_000,
+                input_price: 1.4,
+                output_price: 4.4,
+            },
+            Model {
+                id: "glm-5",
+                display_name: "GLM-5",
+                context_window: 200_000,
+                input_price: 1.0,
+                output_price: 3.2,
+            },
+            Model {
+                id: "glm-4.7",
+                display_name: "GLM-4.7",
+                context_window: 200_000,
+                input_price: 0.6,
+                output_price: 2.2,
+            },
+            Model {
+                id: "glm-4.6",
+                display_name: "GLM-4.6",
+                context_window: 200_000,
+                input_price: 0.6,
+                output_price: 2.2,
+            },
+            Model {
+                id: "glm-4.5-air",
+                display_name: "GLM-4.5-Air",
+                context_window: 128_000,
+                input_price: 0.2,
+                output_price: 1.1,
+            },
+        ],
     },
     Provider {
         id: "groq",
@@ -428,22 +461,6 @@ static REGISTRY: &[Provider] = &[
             output_price: 10.0,
         }],
     },
-    // GWEN-464: Ziphu. Base URL + model data are placeholders pending verification
-    // against Ziphu's official docs/pricing at implementation time.
-    Provider {
-        id: "ziphu",
-        name: "Ziphu",
-        api_key_env: "ZIPHU_API_KEY",
-        base_url: "https://api.ziphu.com/v1",
-        kind: ProviderKind::OpenAiCompat,
-        models: &[Model {
-            id: "ziphu-chat",
-            display_name: "Ziphu Chat",
-            context_window: 128_000,
-            input_price: 0.5,
-            output_price: 1.5,
-        }],
-    },
 ];
 
 #[cfg(test)]
@@ -489,17 +506,17 @@ mod tests {
 
     #[test]
     fn spec_providers_all_present() {
+        // Z.ai (formerly "Ziphu", GWEN-464) is the merged `zai` entry.
         for id in [
             "anthropic",
             "openai",
             "google",
             "deepseek",
             "qwen",
-            "glm",
+            "zai",
             "kimi",
             "mistral",
             "xai",
-            "ziphu",
             "groq",
             "cohere",
             "perplexity",

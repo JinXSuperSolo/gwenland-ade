@@ -5,7 +5,6 @@
   import type { Component } from "svelte";
   import type { IconComponentProps } from "phosphor-svelte";
   import PlusIcon from "phosphor-svelte/lib/PlusIcon";
-  import CaretDownIcon from "phosphor-svelte/lib/CaretDownIcon";
   import MicrophoneIcon from "phosphor-svelte/lib/MicrophoneIcon";
   import ArrowUpIcon from "phosphor-svelte/lib/ArrowUpIcon";
   import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
@@ -14,11 +13,15 @@
   import ChartBarIcon from "phosphor-svelte/lib/ChartBarIcon";
   import PenNibIcon from "phosphor-svelte/lib/PenNibIcon";
   import Output from "./Output.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
 
   type Message = { role: "user" | "ade"; content: string; prompt?: string };
 
   let value = $state("");
   let messages = $state<Message[]>([]);
+  // Selected provider + model, driven by the picker (defaults set on mount).
+  let providerId = $state("");
+  let modelId = $state("");
   let lastPrompt = $state("");
   let isActive = $derived(messages.length > 0);
   let isStreaming = $state(false);
@@ -130,9 +133,7 @@
           </button>
         </div>
         <div class="side">
-          <button class="btn-model">
-            ADE Mini <CaretDownIcon size={10} weight="bold" />
-          </button>
+          <ModelPicker bind:providerId bind:modelId />
           <button class="btn-ghost" aria-label="Voice input">
             <MicrophoneIcon size={16} />
           </button>
@@ -269,28 +270,6 @@
   }
 
   .btn-ghost:hover {
-    background: var(--secondary);
-    color: var(--foreground);
-  }
-
-  .btn-model {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: transparent;
-    border: none;
-    border-radius: calc(var(--radius) - 6px);
-    color: var(--muted-foreground);
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    padding: 7px 10px;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .btn-model:hover {
     background: var(--secondary);
     color: var(--foreground);
   }
