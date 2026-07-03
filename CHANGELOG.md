@@ -12,6 +12,35 @@ directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING
 
 _Nothing yet._
 
+## [0.1.2] — 2026-07-03
+
+The human-in-the-loop feedback batch: capture accept/reject/tweak, turn it into
+memory, and keep memory bounded.
+
+### Added
+
+- Feedback UI on ADE responses — accept / reject / tweak, attached to the last
+  completed message (GWEN-485). Uses `phosphor-svelte` icons already in the
+  dependency tree; no new dependencies.
+- `record_feedback` Tauri command mapping the user's verdict into a
+  `TaskOutcome` and reflecting it into memory; replaces the stubbed post-task
+  reflection in `generate()`.
+- Heuristic reflection seams `memory::extract_preference` (GWEN-486) and
+  `memory::judge_failure` (GWEN-487), ready to swap for model judgment once a
+  provider is wired.
+- Memory compaction on startup (GWEN-488): once a file exceeds 200 bullets,
+  older entries roll up into a `## History (compressed)` line (with count and
+  date range) while the newest 50 are kept verbatim. Idempotent and
+  best-effort — never fails startup.
+
+### Changed
+
+- Preference extraction collapses multi-line tweaks to one line and caps length
+  at 240 chars (GWEN-486).
+- Failure judgment skips rejections with no prompt and no output (GWEN-487).
+- Reflection de-duplicates entries (ignoring the date stamp) so repeated
+  feedback doesn't bloat memory.
+
 ## [0.1.1] — 2026-07-03
 
 ### Added
@@ -56,6 +85,7 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/JinXSuperSolo/gwenland-ade/releases/tag/v0.1.0
