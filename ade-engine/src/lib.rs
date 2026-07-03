@@ -20,6 +20,7 @@ pub fn run() {
             commands::pick_workspace,
             commands::get_workspace,
             commands::generate,
+            commands::record_feedback,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GwenLand ADE");

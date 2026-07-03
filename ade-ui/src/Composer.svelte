@@ -15,10 +15,11 @@
   import PenNibIcon from "phosphor-svelte/lib/PenNibIcon";
   import Output from "./Output.svelte";
 
-  type Message = { role: "user" | "ade"; content: string };
+  type Message = { role: "user" | "ade"; content: string; prompt?: string };
 
   let value = $state("");
   let messages = $state<Message[]>([]);
+  let lastPrompt = $state("");
   let isActive = $derived(messages.length > 0);
   let isStreaming = $state(false);
   let canSend = $derived(value.trim().length > 0 && !isStreaming);
@@ -46,7 +47,8 @@
           content: last.content + e.payload,
         };
       } else {
-        messages.push({ role: 'ade', content: e.payload });
+        // Tag the response with the prompt that produced it, for feedback.
+        messages.push({ role: 'ade', content: e.payload, prompt: lastPrompt });
       }
     });
 
@@ -71,6 +73,7 @@
     if (!text || isStreaming) return;
 
     messages.push({ role: "user", content: text });
+    lastPrompt = text;
     value = "";
     isStreaming = true;
     autoResize();
@@ -99,7 +102,7 @@
 
 <div class="layout" class:active={isActive}>
   {#if isActive}
-    <Output {messages} />
+    <Output {messages} {isStreaming} />
   {/if}
 
   <div class="composer-wrap">

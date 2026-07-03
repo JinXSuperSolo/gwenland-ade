@@ -1,16 +1,28 @@
 <script lang="ts">
   import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
+  import Feedback from './Feedback.svelte';
 
-  type Message = { role: 'user' | 'ade'; content: string };
-  let { messages }: { messages: Message[] } = $props();
+  type Message = { role: 'user' | 'ade'; content: string; prompt?: string };
+  let {
+    messages,
+    isStreaming = false,
+  }: { messages: Message[]; isStreaming?: boolean } = $props();
+
+  // Feedback attaches only to the last ADE message, once it's finished streaming.
+  let lastIndex = $derived(messages.length - 1);
 </script>
 
 <div class="output">
-  {#each messages as msg}
+  {#each messages as msg, i}
     {#if msg.role === 'ade'}
       <div class="msg ade">
         <span class="mark"><SparkleIcon size={15} weight="fill" /></span>
-        <p class="content">{msg.content}</p>
+        <div class="body">
+          <p class="content">{msg.content}</p>
+          {#if i === lastIndex && !isStreaming}
+            <Feedback prompt={msg.prompt ?? ''} output={msg.content} />
+          {/if}
+        </div>
       </div>
     {:else}
       <div class="msg user">
@@ -51,6 +63,14 @@
     display: flex;
     gap: 10px;
     padding-right: 8px;
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
   }
 
   .mark {

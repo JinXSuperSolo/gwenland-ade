@@ -187,6 +187,34 @@ pub fn reflect(outcome: &TaskOutcome) -> io::Result<()> {
     Ok(())
 }
 
+/// Heuristic preference extraction from a tweak (GWEN-486 seam).
+///
+/// Returns the correction text to record in `preferences.md`, or `None` when
+/// there is not enough signal (e.g. an empty tweak). A model-judgment version
+/// can replace the body without changing callers.
+pub fn extract_preference(_output: &str, tweak: Option<&str>) -> Option<String> {
+    let tweak = tweak?.trim();
+    if tweak.is_empty() {
+        return None;
+    }
+    Some(format!("prefers: {tweak}"))
+}
+
+/// Heuristic failure judgment from a rejected response (GWEN-487 seam).
+///
+/// Returns a short failure summary to record in `failures.md`. Currently every
+/// rejection is treated as a failure; a model-backed judgment can refine this
+/// (e.g. distinguish "wrong" from "not what I wanted") later.
+pub fn judge_failure(prompt: &str, _output: &str) -> Option<String> {
+    let prompt = prompt.trim();
+    let summary = if prompt.is_empty() {
+        "user rejected the response".to_string()
+    } else {
+        format!("user rejected the response for: {prompt}")
+    };
+    Some(summary)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,6 +234,28 @@ mod tests {
         assert_eq!(
             meaningful_body("# Failure Memory\n\n- [2026-07-03] boom\n"),
             "- [2026-07-03] boom"
+        );
+    }
+
+    #[test]
+    fn extract_preference_needs_signal() {
+        assert_eq!(extract_preference("out", None), None);
+        assert_eq!(extract_preference("out", Some("   ")), None);
+        assert_eq!(
+            extract_preference("out", Some("use tabs")),
+            Some("prefers: use tabs".to_string())
+        );
+    }
+
+    #[test]
+    fn judge_failure_summarizes_rejection() {
+        assert_eq!(
+            judge_failure("add tests", "..."),
+            Some("user rejected the response for: add tests".to_string())
+        );
+        assert_eq!(
+            judge_failure("   ", "..."),
+            Some("user rejected the response".to_string())
         );
     }
 

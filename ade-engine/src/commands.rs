@@ -84,13 +84,63 @@ pub async fn generate(
 
     app.emit("ade://done", "").map_err(|e| e.to_string())?;
 
-    // Post-task reflection (GWEN-483). Non-fatal: never fail the task over a
-    // memory write. The stub run has no real error/correction signal yet, so
-    // this records nothing until the provider surfaces one.
-    let outcome = crate::memory::TaskOutcome::default();
-    if let Err(e) = crate::memory::reflect(&outcome) {
+    // Reflection is now driven by explicit user feedback via `record_feedback`
+    // (GWEN-485), rather than guessed at the end of a stubbed run.
+    Ok(())
+}
+
+/// User's verdict on an ADE response, sent from the feedback UI (GWEN-485).
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FeedbackAction {
+    /// The user accepted the output as-is.
+    Accept,
+    /// The user rejected the output.
+    Reject,
+    /// The user supplied a corrected version (carried in `tweak`).
+    Tweak,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct FeedbackRequest {
+    pub action: FeedbackAction,
+    /// The original prompt that produced the output.
+    pub prompt: String,
+    /// The ADE output the user is judging.
+    pub output: String,
+    /// The corrected text, present when `action` is `Tweak`.
+    #[serde(default)]
+    pub tweak: Option<String>,
+}
+
+/// Records user feedback on an ADE response and reflects it into memory.
+///
+/// This is the real signal source for the reflection seam (GWEN-483): it builds
+/// a [`TaskOutcome`] from the user's verdict and calls `memory::reflect`. The
+/// preference/failure extraction is heuristic for now (GWEN-486, GWEN-487) with
+/// a seam for model judgment later. Never fails the caller over a memory write.
+#[tauri::command]
+pub async fn record_feedback(request: FeedbackRequest) -> Result<(), String> {
+    use crate::memory;
+
+    let outcome = match request.action {
+        // Accept is signal too — but nothing to record yet.
+        FeedbackAction::Accept => memory::TaskOutcome::default(),
+        FeedbackAction::Reject => memory::TaskOutcome {
+            errored: true,
+            failure_summary: memory::judge_failure(&request.prompt, &request.output),
+            user_correction: None,
+        },
+        FeedbackAction::Tweak => memory::TaskOutcome {
+            errored: false,
+            failure_summary: None,
+            user_correction: memory::extract_preference(&request.output, request.tweak.as_deref()),
+        },
+    };
+
+    if let Err(e) = memory::reflect(&outcome) {
+        // Non-fatal: surface to logs, but don't fail the UI action.
         eprintln!("Warning: reflection failed: {e}");
     }
-
     Ok(())
 }
