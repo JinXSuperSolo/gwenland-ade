@@ -1,0 +1,29 @@
+<script lang="ts">
+  import Titlebar from './Titlebar.svelte';
+  import Sidebar from './Sidebar.svelte';
+  import Composer from './Composer.svelte';
+</script>
+
+<div class="app">
+  <Titlebar />
+  <Sidebar />
+  <main>
+    <Composer />
+  </main>
+</div>
+
+<style>
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--background);
+    overflow: hidden;
+  }
+
+  main {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+</style>
