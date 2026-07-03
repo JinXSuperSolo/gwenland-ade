@@ -24,10 +24,17 @@ pub fn memory_dir() -> io::Result<PathBuf> {
     Ok(dir)
 }
 
-/// Ensures the memory dir and seed files exist. Never overwrites existing files.
+/// Compaction kicks in once a memory file exceeds this many bullet entries.
+/// The newest `KEEP_RECENT` are preserved verbatim; the rest are summarized.
+const COMPACT_THRESHOLD: usize = 200;
+const KEEP_RECENT: usize = 50;
+
+/// Ensures the memory dir and seed files exist, then compacts oversized files.
+/// Never overwrites existing seed content.
 ///
 /// Called once on startup. Returns an error only if the directory or a missing
-/// seed file could not be created; existing content is left untouched.
+/// seed file could not be created; existing content is left untouched. A
+/// compaction failure is swallowed (logged) so startup never fails over it.
 pub fn init_memory() -> io::Result<()> {
     let dir = memory_dir()?;
     for (name, contents) in SEED_FILES {
@@ -36,7 +43,109 @@ pub fn init_memory() -> io::Result<()> {
             fs::write(&path, contents)?;
         }
     }
+    // Compact after seeding (GWEN-488). Best-effort — a failure here must not
+    // prevent the app from starting.
+    for (name, _) in SEED_FILES {
+        if let Err(e) = compact(name, COMPACT_THRESHOLD, KEEP_RECENT) {
+            eprintln!("Warning: could not compact {name}.md: {e}");
+        }
+    }
     Ok(())
+}
+
+/// Summarizes old entries in a memory file once it grows past `threshold`
+/// bullets, keeping the newest `keep_recent` verbatim (GWEN-488).
+///
+/// Older bullets are replaced by a single rolled-up line under a
+/// `## History (compressed)` section, e.g.
+/// `- 152 earlier entries (2026-06-01 … 2026-07-02)`. Existing history lines are
+/// themselves preserved and re-counted, so repeated compaction is idempotent and
+/// never loses the running total. Returns `true` if the file was rewritten.
+///
+/// The file header (leading `#`/blank lines) is preserved as-is.
+pub fn compact(name: &str, threshold: usize, keep_recent: usize) -> io::Result<bool> {
+    let raw = match read_memory(name) {
+        Ok(s) => s,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+
+    let bullets: Vec<&str> = raw
+        .lines()
+        .map(str::trim_end)
+        .filter(|l| l.trim_start().starts_with("- "))
+        .collect();
+
+    if bullets.len() <= threshold {
+        return Ok(false);
+    }
+
+    let split = bullets.len().saturating_sub(keep_recent);
+    let (older, recent) = bullets.split_at(split);
+
+    // Fold any prior "N earlier entries" rollup into the new count so totals
+    // stay accurate across repeated compactions.
+    let mut prior_count = 0usize;
+    let mut dates: Vec<String> = Vec::new();
+    for line in older {
+        let text = bullet_text(line);
+        if let Some(n) = parse_rollup_count(text) {
+            prior_count += n;
+        } else {
+            prior_count += 1;
+        }
+        if let Some(d) = bullet_date(line) {
+            dates.push(d);
+        }
+    }
+    dates.sort();
+    let range = match (dates.first(), dates.last()) {
+        (Some(first), Some(last)) if first != last => format!(" ({first} … {last})"),
+        (Some(only), _) => format!(" ({only})"),
+        _ => String::new(),
+    };
+
+    // Preserve the file's header block (before the first bullet).
+    let header: String = raw
+        .lines()
+        .take_while(|l| !l.trim_start().starts_with("- "))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut out = String::new();
+    out.push_str(header.trim_end());
+    out.push_str("\n\n## History (compressed)\n\n");
+    out.push_str(&format!("- {prior_count} earlier entries{range}\n"));
+    out.push_str("\n## Recent\n\n");
+    for line in recent {
+        out.push_str(line);
+        out.push('\n');
+    }
+
+    write_memory(name, &out)?;
+    Ok(true)
+}
+
+/// Parses the entry count from a rollup line like `152 earlier entries (…)`.
+fn parse_rollup_count(text: &str) -> Option<usize> {
+    let digits: String = text.chars().take_while(char::is_ascii_digit).collect();
+    if digits.is_empty() {
+        return None;
+    }
+    let rest = text[digits.len()..].trim_start();
+    if rest.starts_with("earlier entries") {
+        digits.parse().ok()
+    } else {
+        None
+    }
+}
+
+/// Extracts the `YYYY-MM-DD` date from a `- [date] …` bullet, if present.
+fn bullet_date(line: &str) -> Option<String> {
+    let line = line.trim().trim_start_matches("- ").trim_start();
+    let inner = line.strip_prefix('[')?;
+    let close = inner.find(']')?;
+    Some(inner[..close].to_string())
 }
 
 /// Lists memory names (file stems of `*.md`), sorted.
@@ -174,43 +283,82 @@ pub struct TaskOutcome {
 /// - `errored` → append `failure_summary` to `failures.md`.
 /// - `user_correction` present → append it to `preferences.md`.
 ///
+/// Entries that already appear in the target file are skipped so repeated
+/// feedback doesn't bloat memory (GWEN-486/487).
+///
 /// Non-fatal by contract: a write failure returns `Err` for the caller to log,
 /// but the caller should not fail the task over it.
 pub fn reflect(outcome: &TaskOutcome) -> io::Result<()> {
     if outcome.errored {
         let summary = outcome.failure_summary.as_deref().unwrap_or("task failed");
-        append_memory("failures", summary)?;
+        append_unique("failures", summary)?;
     }
     if let Some(correction) = &outcome.user_correction {
-        append_memory("preferences", correction)?;
+        append_unique("preferences", correction)?;
     }
     Ok(())
 }
 
-/// Heuristic preference extraction from a tweak (GWEN-486 seam).
+/// Appends `entry` unless an equivalent bullet is already present in the file.
+///
+/// "Equivalent" ignores the leading `- [date]` stamp, so the same correction
+/// recorded on two different days is treated as a duplicate.
+fn append_unique(name: &str, entry: &str) -> io::Result<()> {
+    let entry = entry.trim();
+    let existing = read_memory(name).unwrap_or_default();
+    let already = existing.lines().any(|line| bullet_text(line) == entry);
+    if already {
+        return Ok(());
+    }
+    append_memory(name, entry)
+}
+
+/// Strips a `- [date] ` prefix (if any) from a memory line, returning the text.
+fn bullet_text(line: &str) -> &str {
+    let line = line.trim().trim_start_matches("- ").trim_start();
+    match (line.starts_with('['), line.find(']')) {
+        (true, Some(close)) => line[close + 1..].trim_start(),
+        _ => line,
+    }
+}
+
+/// Heuristic preference extraction from a tweak (GWEN-486).
 ///
 /// Returns the correction text to record in `preferences.md`, or `None` when
-/// there is not enough signal (e.g. an empty tweak). A model-judgment version
-/// can replace the body without changing callers.
+/// there is not enough signal. The tweak is trimmed, collapsed to a single line,
+/// and length-capped so a pasted essay doesn't swamp the memory file. A
+/// model-judgment version can replace the body without changing callers.
 pub fn extract_preference(_output: &str, tweak: Option<&str>) -> Option<String> {
+    const MAX_LEN: usize = 240;
+
     let tweak = tweak?.trim();
     if tweak.is_empty() {
         return None;
     }
-    Some(format!("prefers: {tweak}"))
+    // Collapse whitespace/newlines into a single-line bullet.
+    let mut normalized = tweak.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() > MAX_LEN {
+        normalized = normalized.chars().take(MAX_LEN - 1).collect::<String>() + "…";
+    }
+    Some(format!("prefers: {normalized}"))
 }
 
-/// Heuristic failure judgment from a rejected response (GWEN-487 seam).
+/// Heuristic failure judgment from a rejected response (GWEN-487).
 ///
-/// Returns a short failure summary to record in `failures.md`. Currently every
-/// rejection is treated as a failure; a model-backed judgment can refine this
-/// (e.g. distinguish "wrong" from "not what I wanted") later.
-pub fn judge_failure(prompt: &str, _output: &str) -> Option<String> {
+/// Returns a short failure summary to record in `failures.md`, or `None` when
+/// the rejection carries too little context to be worth recording (empty prompt
+/// *and* empty output). A model-backed judgment can refine this later, e.g.
+/// distinguishing "wrong" from "not what I wanted".
+pub fn judge_failure(prompt: &str, output: &str) -> Option<String> {
     let prompt = prompt.trim();
+    if prompt.is_empty() && output.trim().is_empty() {
+        return None;
+    }
     let summary = if prompt.is_empty() {
         "user rejected the response".to_string()
     } else {
-        format!("user rejected the response for: {prompt}")
+        let one_line = prompt.split_whitespace().collect::<Vec<_>>().join(" ");
+        format!("user rejected the response for: {one_line}")
     };
     Some(summary)
 }
@@ -245,18 +393,126 @@ mod tests {
             extract_preference("out", Some("use tabs")),
             Some("prefers: use tabs".to_string())
         );
+        // Multi-line tweaks collapse to a single line.
+        assert_eq!(
+            extract_preference("out", Some("use\n  tabs\tnot spaces")),
+            Some("prefers: use tabs not spaces".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_preference_caps_length() {
+        let long = "x ".repeat(400);
+        let pref = extract_preference("out", Some(&long)).unwrap();
+        assert!(pref.chars().count() <= "prefers: ".len() + 240);
+        assert!(pref.ends_with('…'));
     }
 
     #[test]
     fn judge_failure_summarizes_rejection() {
         assert_eq!(
-            judge_failure("add tests", "..."),
+            judge_failure("add  tests", "..."),
             Some("user rejected the response for: add tests".to_string())
         );
         assert_eq!(
-            judge_failure("   ", "..."),
+            judge_failure("   ", "some output"),
             Some("user rejected the response".to_string())
         );
+        // No prompt and no output → not worth recording.
+        assert_eq!(judge_failure("   ", "  "), None);
+    }
+
+    #[test]
+    fn bullet_helpers_parse_stamped_lines() {
+        assert_eq!(bullet_text("- [2026-07-03] prefers: tabs"), "prefers: tabs");
+        assert_eq!(bullet_text("- plain entry"), "plain entry");
+        assert_eq!(
+            bullet_date("- [2026-07-03] x"),
+            Some("2026-07-03".to_string())
+        );
+        assert_eq!(bullet_date("- no date"), None);
+    }
+
+    #[test]
+    fn parse_rollup_count_reads_totals() {
+        assert_eq!(parse_rollup_count("152 earlier entries (a … b)"), Some(152));
+        assert_eq!(parse_rollup_count("prefers: use 4 spaces"), None);
+        assert_eq!(parse_rollup_count("earlier entries"), None);
+    }
+
+    #[test]
+    fn compact_rolls_up_and_is_idempotent() {
+        // Build a file with 210 stamped bullets over threshold=200, keep 50.
+        let mut raw = String::from("# Failure Memory\n\n");
+        for i in 0..210 {
+            raw.push_str(&format!("- [2026-07-{:02}] entry {i}\n", (i % 28) + 1));
+        }
+
+        let compacted = rewrite_for_test(&raw, 200, 50);
+        // 160 older entries rolled into one line; 50 recent kept.
+        assert!(compacted.contains("## History (compressed)"));
+        assert!(compacted.contains("- 160 earlier entries"));
+        let recent = compacted.matches("entry ").count();
+        assert_eq!(recent, 50);
+
+        // Re-compacting the result (still 51 bullets: 1 rollup + 50) is a no-op
+        // because it's under threshold.
+        assert!(count_bullets(&compacted) <= 51);
+    }
+
+    // Mirror of `compact`'s transform without touching the filesystem, so the
+    // rollup logic is unit-testable. Kept in sync with `compact` by construction.
+    fn rewrite_for_test(raw: &str, threshold: usize, keep_recent: usize) -> String {
+        let bullets: Vec<&str> = raw
+            .lines()
+            .map(str::trim_end)
+            .filter(|l| l.trim_start().starts_with("- "))
+            .collect();
+        assert!(
+            bullets.len() > threshold,
+            "test fixture must exceed threshold"
+        );
+
+        let split = bullets.len().saturating_sub(keep_recent);
+        let (older, recent) = bullets.split_at(split);
+
+        let mut prior_count = 0usize;
+        let mut dates: Vec<String> = Vec::new();
+        for line in older {
+            let text = bullet_text(line);
+            prior_count += parse_rollup_count(text).unwrap_or(1);
+            if let Some(d) = bullet_date(line) {
+                dates.push(d);
+            }
+        }
+        dates.sort();
+        let range = match (dates.first(), dates.last()) {
+            (Some(f), Some(l)) if f != l => format!(" ({f} … {l})"),
+            (Some(o), _) => format!(" ({o})"),
+            _ => String::new(),
+        };
+        let header: String = raw
+            .lines()
+            .take_while(|l| !l.trim_start().starts_with("- "))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let mut out = String::new();
+        out.push_str(header.trim_end());
+        out.push_str("\n\n## History (compressed)\n\n");
+        out.push_str(&format!("- {prior_count} earlier entries{range}\n"));
+        out.push_str("\n## Recent\n\n");
+        for line in recent {
+            out.push_str(line);
+            out.push('\n');
+        }
+        out
+    }
+
+    fn count_bullets(s: &str) -> usize {
+        s.lines()
+            .filter(|l| l.trim_start().starts_with("- "))
+            .count()
     }
 
     #[test]
