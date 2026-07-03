@@ -144,3 +144,84 @@ pub async fn record_feedback(request: FeedbackRequest) -> Result<(), String> {
     }
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Provider registry + API-key storage (GWEN-464..469)
+// ---------------------------------------------------------------------------
+
+/// Keychain service name under which ADE stores provider API keys.
+const KEYCHAIN_SERVICE: &str = "dev.gwenland.ade";
+
+/// Returns the full provider registry so the Settings UI can render key inputs
+/// and the model selector data-driven (GWEN-469).
+#[tauri::command]
+pub fn list_providers() -> Vec<serde_json::Value> {
+    crate::providers::registry()
+        .iter()
+        .map(|p| {
+            let models: Vec<_> = p
+                .models
+                .iter()
+                .map(|m| {
+                    serde_json::json!({
+                        "id": m.id,
+                        "displayName": m.display_name,
+                        "contextWindow": m.context_window,
+                        "inputPrice": m.input_price,
+                        "outputPrice": m.output_price,
+                        "display": m.display(),
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "id": p.id,
+                "name": p.name,
+                "apiKeyEnv": p.api_key_env,
+                "baseUrl": p.base_url,
+                "kind": p.kind,
+                "models": models,
+            })
+        })
+        .collect()
+}
+
+/// Saves a provider's API key to the OS keychain. An empty key deletes the entry.
+#[tauri::command]
+pub fn save_api_key(provider: String, key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &provider).map_err(|e| e.to_string())?;
+    if key.trim().is_empty() {
+        // Treat "clear" as delete; ignore "not found".
+        match entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    } else {
+        entry.set_password(&key).map_err(|e| e.to_string())
+    }
+}
+
+/// Returns the stored API key for a provider, falling back to its env var.
+/// The key is returned to the frontend so it can call the provider directly.
+#[tauri::command]
+pub fn get_api_key(provider: String) -> Result<Option<String>, String> {
+    if let Some(p) = crate::providers::find(&provider) {
+        if let Ok(v) = std::env::var(p.api_key_env) {
+            if !v.trim().is_empty() {
+                return Ok(Some(v));
+            }
+        }
+    }
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &provider).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(k) => Ok(Some(k)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Whether a provider has a usable key (env var or keychain) — lets Settings show
+/// a "configured" state without exposing the secret.
+#[tauri::command]
+pub fn has_api_key(provider: String) -> bool {
+    get_api_key(provider).ok().flatten().is_some()
+}

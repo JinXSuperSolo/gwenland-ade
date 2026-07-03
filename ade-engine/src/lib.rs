@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod memory;
+pub mod providers;
 
 use commands::WorkspaceState;
 use std::sync::Mutex;
@@ -21,6 +22,10 @@ pub fn run() {
             commands::get_workspace,
             commands::generate,
             commands::record_feedback,
+            commands::list_providers,
+            commands::save_api_key,
+            commands::get_api_key,
+            commands::has_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GwenLand ADE");

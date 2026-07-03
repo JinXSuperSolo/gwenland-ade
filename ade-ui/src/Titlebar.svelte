@@ -2,6 +2,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { platform } from '@tauri-apps/plugin-os';
   import SidebarSimpleIcon from 'phosphor-svelte/lib/SidebarSimpleIcon';
+  import GearSixIcon from 'phosphor-svelte/lib/GearSixIcon';
   import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
   import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
   import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
@@ -40,6 +41,14 @@
     <button class="nav-btn" aria-label="Search"><MagnifyingGlassIcon size={15} /></button>
     <button class="nav-btn" aria-label="Back"><ArrowLeftIcon size={15} /></button>
     <button class="nav-btn" aria-label="Forward"><ArrowRightIcon size={15} /></button>
+    <button
+      class="nav-btn"
+      class:active={ui.settingsOpen}
+      onclick={() => (ui.settingsOpen = true)}
+      aria-label="Settings"
+    >
+      <GearSixIcon size={15} />
+    </button>
   </div>
 
   {#if !isMac}

@@ -2,6 +2,8 @@
   import Titlebar from './Titlebar.svelte';
   import Sidebar from './Sidebar.svelte';
   import Composer from './Composer.svelte';
+  import Settings from './Settings.svelte';
+  import { ui } from './ui.svelte';
 </script>
 
 <div class="app">
@@ -10,6 +12,9 @@
   <main>
     <Composer />
   </main>
+  {#if ui.settingsOpen}
+    <Settings onClose={() => (ui.settingsOpen = false)} />
+  {/if}
 </div>
 
 <style>
