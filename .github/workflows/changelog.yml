@@ -1,0 +1,32 @@
+name: Changelog
+
+# Enforces the changelog-fragment workflow (see CONTRIBUTING.md): every PR that
+# touches source should add a fragment under changelog/. Add the
+# `no-changelog` label to skip (docs-only, chores, etc.).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  fragment:
+    name: Require changelog fragment
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for a new changelog fragment
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          added=$(git diff --name-only --diff-filter=A "$base"...HEAD -- 'changelog/*.md' \
+            | grep -v 'changelog/README.md' || true)
+          if [ -z "$added" ]; then
+            echo "::error::No changelog fragment added under changelog/. Add one (see CONTRIBUTING.md) or apply the 'no-changelog' label."
+            exit 1
+          fi
+          echo "Found changelog fragment(s):"
+          echo "$added"

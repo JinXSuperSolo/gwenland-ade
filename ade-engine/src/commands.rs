@@ -10,10 +10,7 @@ pub async fn pick_workspace(
 ) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    let folder = app
-        .dialog()
-        .file()
-        .blocking_pick_folder();
+    let folder = app.dialog().file().blocking_pick_folder();
 
     if let Some(path) = folder {
         let path_str = path.to_string();
@@ -25,9 +22,7 @@ pub async fn pick_workspace(
 }
 
 #[tauri::command]
-pub async fn get_workspace(
-    state: State<'_, WorkspaceState>,
-) -> Result<Option<String>, String> {
+pub async fn get_workspace(state: State<'_, WorkspaceState>) -> Result<Option<String>, String> {
     Ok(state.0.lock().unwrap().clone())
 }
 
@@ -43,7 +38,8 @@ pub async fn generate(
     state: State<'_, WorkspaceState>,
     request: GenerateRequest,
 ) -> Result<(), String> {
-    let workspace = request.workspace
+    let workspace = request
+        .workspace
         .or_else(|| state.0.lock().unwrap().clone())
         .unwrap_or_else(|| "~".to_string());
 
@@ -71,8 +67,14 @@ pub async fn generate(
 
     // Untuk sekarang, emit placeholder streaming
     let tokens = vec![
-        "Got it! ", "Let me ", "work on ", "that for ", "you...\n\n",
-        "```rust\n", "// Your code here\n", "```",
+        "Got it! ",
+        "Let me ",
+        "work on ",
+        "that for ",
+        "you...\n\n",
+        "```rust\n",
+        "// Your code here\n",
+        "```",
     ];
 
     for token in tokens {
