@@ -12,6 +12,29 @@ directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING
 
 _Nothing yet._
 
+## [0.1.1] — 2026-07-03
+
+### Added
+
+- Inject stored memory into the task system prompt via `memory::context_block()`;
+  seeded-but-empty files are skipped so no dangling `## Memory` header is emitted
+  (GWEN-484).
+- Post-task reflection seam `memory::reflect(TaskOutcome)` with `append_memory()`;
+  heuristic rules append to `failures.md` / `preferences.md`, non-fatal on write
+  error (GWEN-483).
+- GitHub Actions pipelines: CI (fmt/clippy/test + frontend build), tagged
+  releases via `tauri-action`, and a per-PR changelog-fragment gate.
+
+### Fixed
+
+- Silence two build warnings in `commands.rs` (unused import and unused
+  variable).
+
+### Notes
+
+- Local date stamping uses a self-contained civil-from-days helper — no new
+  dependency added.
+
 ## [0.1.0] — 2026-07-03
 
 Initial milestone (M1) — foundation.
@@ -33,5 +56,6 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/JinXSuperSolo/gwenland-ade/releases/tag/v0.1.0
