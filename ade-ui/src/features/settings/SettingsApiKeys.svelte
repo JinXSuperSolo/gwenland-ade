@@ -3,13 +3,13 @@
   import EyeIcon from "phosphor-svelte/lib/EyeIcon";
   import EyeSlashIcon from "phosphor-svelte/lib/EyeSlashIcon";
   import CheckCircleIcon from "phosphor-svelte/lib/CheckCircleIcon";
-  import ProviderIcon from "./ProviderIcon.svelte";
+  import ProviderIcon from "../../components/ProviderIcon.svelte";
   import {
     listProviders,
     getApiKey,
     saveApiKey,
     type Provider,
-  } from "./providers";
+  } from "../../shared/providers";
 
   type Row = {
     provider: Provider;

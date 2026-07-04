@@ -21,6 +21,50 @@ pub enum ProviderKind {
     OpenAiCompat,
 }
 
+/// A model's reasoning/thinking capability — drives the effort/thinking UI in
+/// the model picker and the request parameters the frontend sends (M5).
+///
+/// Not every model has thinking, and those that do expose it differently:
+/// Anthropic uses an `effort` param (or legacy `budget_tokens`), OpenAI o-series
+/// use `reasoning_effort`, and Gemini uses `thinking_level` or `thinking_budget`.
+/// A few reason unconditionally with no user-facing control.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Reasoning {
+    /// No reasoning/thinking at all (GPT-4o, Llama, Mistral, Cohere, Grok, …).
+    None,
+    /// Anthropic adaptive effort: low / medium / high / max (Sonnet 4.6+, Opus 4.6+, Sonnet 5).
+    Effort,
+    /// Anthropic legacy extended thinking via `budget_tokens` (Claude 3.7 and older thinking models).
+    BudgetTokens,
+    /// Reasons unconditionally, no toggle or level (Fable 5, DeepSeek R1, R1 distills, Gemini 2.5 Pro).
+    AlwaysOn,
+    /// OpenAI o-series `reasoning_effort`: low / medium / high (o1, o1-mini, o1-preview, o3-mini, o3-pro).
+    ReasoningEffort,
+    /// Gemini `thinking_level`: low / medium / high / max (Gemini 3.x Pro / Deep Think).
+    ThinkingLevel,
+    /// Gemini `thinking_budget`, toggleable 0–N tokens (Gemini 2.5 Flash).
+    ThinkingBudget,
+}
+
+impl Reasoning {
+    /// Whether the picker should show a discrete level selector (low/med/high[/max]).
+    pub fn has_levels(self) -> bool {
+        matches!(
+            self,
+            Reasoning::Effort | Reasoning::ReasoningEffort | Reasoning::ThinkingLevel
+        )
+    }
+    /// Whether the picker should show an on/off thinking toggle.
+    pub fn has_toggle(self) -> bool {
+        matches!(self, Reasoning::BudgetTokens | Reasoning::ThinkingBudget)
+    }
+    /// Whether `max` is a valid level (only Anthropic effort + Gemini thinking_level).
+    pub fn has_max(self) -> bool {
+        matches!(self, Reasoning::Effort | Reasoning::ThinkingLevel)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Model {
     pub id: &'static str,
@@ -31,6 +75,8 @@ pub struct Model {
     pub input_price: f64,
     /// USD per 1M output tokens.
     pub output_price: f64,
+    /// Reasoning/thinking capability (M5).
+    pub reasoning: Reasoning,
 }
 
 impl Model {
@@ -105,6 +151,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::Effort,
             },
             Model {
                 id: "claude-fable-5",
@@ -112,6 +159,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 0.8,
                 output_price: 4.0,
+                reasoning: Reasoning::AlwaysOn,
             },
             Model {
                 id: "claude-opus-5",
@@ -119,6 +167,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::Effort,
             },
             Model {
                 id: "claude-4-6-opus-20260205",
@@ -126,6 +175,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::Effort,
             },
             Model {
                 id: "claude-4-6-sonnet-20260217",
@@ -133,6 +183,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::Effort,
             },
             Model {
                 id: "claude-4-5-opus-2025",
@@ -140,6 +191,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::BudgetTokens,
             },
             Model {
                 id: "claude-sonnet-4-5",
@@ -147,6 +199,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::BudgetTokens,
             },
             Model {
                 id: "claude-4-5-haiku-2025",
@@ -154,6 +207,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 0.8,
                 output_price: 4.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-4-opus-2025",
@@ -161,6 +215,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::BudgetTokens,
             },
             Model {
                 id: "claude-4-sonnet-2025",
@@ -168,6 +223,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::BudgetTokens,
             },
             Model {
                 id: "claude-3-7-sonnet-20250219",
@@ -175,6 +231,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::BudgetTokens,
             },
             Model {
                 id: "claude-3-5-opus-202409",
@@ -182,6 +239,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-3-5-sonnet-20241022",
@@ -189,6 +247,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-3-5-haiku-20241022",
@@ -196,6 +255,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 0.8,
                 output_price: 4.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-3-opus-20240229",
@@ -203,6 +263,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 75.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-3-sonnet-20240229",
@@ -210,6 +271,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "claude-3-haiku-20240307",
@@ -217,6 +279,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 0.25,
                 output_price: 1.25,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -233,6 +296,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 2.5,
                 output_price: 10.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "command-r-2025",
@@ -240,6 +304,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.15,
                 output_price: 0.6,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "command-a",
@@ -247,6 +312,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 1.5,
                 output_price: 6.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "command-r-plus-08-2024",
@@ -254,6 +320,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 2.5,
                 output_price: 10.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "command-r-08-2024",
@@ -261,6 +328,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.15,
                 output_price: 0.6,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "command-r7b-12-2024",
@@ -268,6 +336,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.0375,
                 output_price: 0.15,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -284,6 +353,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 0.55,
                 output_price: 2.19,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "deepseek-v4-flash",
@@ -291,6 +361,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 0.27,
                 output_price: 1.1,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "deepseek-reasoner",
@@ -298,6 +369,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 64_000,
                 input_price: 0.55,
                 output_price: 2.19,
+                reasoning: Reasoning::AlwaysOn,
             },
             Model {
                 id: "deepseek-chat",
@@ -305,6 +377,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 64_000,
                 input_price: 0.27,
                 output_price: 1.1,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "deepseek-coder",
@@ -312,6 +385,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 64_000,
                 input_price: 0.14,
                 output_price: 0.28,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -328,6 +402,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 2_000_000,
                 input_price: 0.1,
                 output_price: 0.4,
+                reasoning: Reasoning::ThinkingBudget,
             },
             Model {
                 id: "gemini-3.1-pro",
@@ -335,6 +410,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 2_000_000,
                 input_price: 1.25,
                 output_price: 5.0,
+                reasoning: Reasoning::ThinkingLevel,
             },
             Model {
                 id: "gemini-3-deep-think",
@@ -342,6 +418,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 2.0,
                 output_price: 8.0,
+                reasoning: Reasoning::ThinkingLevel,
             },
             Model {
                 id: "gemini-2.5-pro",
@@ -349,6 +426,15 @@ static REGISTRY: &[Provider] = &[
                 context_window: 2_000_000,
                 input_price: 1.25,
                 output_price: 5.0,
+                reasoning: Reasoning::AlwaysOn,
+            },
+            Model {
+                id: "gemini-2.5-flash",
+                display_name: "Gemini 2.5 Flash",
+                context_window: 1_000_000,
+                input_price: 0.3,
+                output_price: 2.5,
+                reasoning: Reasoning::ThinkingBudget,
             },
             Model {
                 id: "gemini-2.0-pro-exp",
@@ -356,6 +442,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 2_000_000,
                 input_price: 1.25,
                 output_price: 5.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemini-2.0-flash",
@@ -363,6 +450,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 0.1,
                 output_price: 0.4,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemini-1.5-pro",
@@ -370,6 +458,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 2_000_000,
                 input_price: 1.25,
                 output_price: 5.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemini-1.5-flash",
@@ -377,6 +466,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 0.075,
                 output_price: 0.3,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemini-1.5-flash-8b",
@@ -384,6 +474,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_000_000,
                 input_price: 0.0375,
                 output_price: 0.15,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemini-1.0-pro",
@@ -391,6 +482,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_000,
                 input_price: 0.5,
                 output_price: 1.5,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -407,6 +499,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.79,
                 output_price: 0.99,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "llama-4-8b-instant",
@@ -414,6 +507,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.05,
                 output_price: 0.08,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "llama-3.3-70b-versatile",
@@ -421,6 +515,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.59,
                 output_price: 0.79,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "llama-3.1-405b-reasoning",
@@ -428,6 +523,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 2.0,
                 output_price: 2.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "llama-3.1-70b-versatile",
@@ -435,6 +531,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.59,
                 output_price: 0.79,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "llama-3.1-8b-instant",
@@ -442,6 +539,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.05,
                 output_price: 0.08,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "mixtral-8x7b-32768",
@@ -449,6 +547,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_768,
                 input_price: 0.24,
                 output_price: 0.24,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gemma2-9b-it",
@@ -456,6 +555,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 8_192,
                 input_price: 0.2,
                 output_price: 0.2,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "deepseek-r1-distill-llama-70b",
@@ -463,43 +563,84 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.75,
                 output_price: 0.99,
+                reasoning: Reasoning::AlwaysOn,
             },
         ],
     },
     Provider {
+        // Kimi is the AI; Moonshot AI is the company behind it. The product name
+        // is "Kimi" — the API identifiers use it too on the international endpoint.
         id: "kimi",
-        name: "Kimi / Moonshot",
-        api_key_env: "MOONSHOT_API_KEY",
-        base_url: "https://api.moonshot.cn/v1",
+        name: "Kimi",
+        api_key_env: "KIMI_API_KEY",
+        base_url: "https://api.moonshot.ai/v1",
         kind: ProviderKind::OpenAiCompat,
         models: &[
+            // Frontier K2 line (256K context, 1T-param MoE). Newest first.
             Model {
-                id: "moonshot-v2-128k",
-                display_name: "Moonshot v2 128K",
-                context_window: 128_000,
-                input_price: 2.0,
-                output_price: 5.0,
-            },
-            Model {
-                id: "moonshot-v1-128k",
-                display_name: "Moonshot v1 128K",
-                context_window: 128_000,
-                input_price: 2.0,
-                output_price: 5.0,
-            },
-            Model {
-                id: "moonshot-v1-32k",
-                display_name: "Moonshot v1 32K",
-                context_window: 32_000,
-                input_price: 1.0,
+                id: "kimi-k2-6",
+                display_name: "Kimi K2.6",
+                context_window: 256_000,
+                input_price: 0.6,
                 output_price: 2.5,
+                reasoning: Reasoning::None,
             },
             Model {
-                id: "moonshot-v1-8k",
-                display_name: "Moonshot v1 8K",
-                context_window: 8_000,
-                input_price: 0.5,
-                output_price: 1.25,
+                id: "kimi-k2-6-thinking",
+                display_name: "Kimi K2.6 Thinking",
+                context_window: 256_000,
+                input_price: 0.6,
+                output_price: 2.5,
+                // K2 Thinking reasons unconditionally — no toggle exposed.
+                reasoning: Reasoning::AlwaysOn,
+            },
+            Model {
+                id: "kimi-k2-5",
+                display_name: "Kimi K2.5",
+                context_window: 256_000,
+                input_price: 0.6,
+                output_price: 2.5,
+                reasoning: Reasoning::None,
+            },
+            Model {
+                id: "kimi-k2-thinking",
+                display_name: "Kimi K2 Thinking",
+                context_window: 256_000,
+                input_price: 0.6,
+                output_price: 2.5,
+                reasoning: Reasoning::AlwaysOn,
+            },
+            Model {
+                id: "kimi-k2-0905-preview",
+                display_name: "Kimi K2 (0905)",
+                context_window: 256_000,
+                input_price: 0.6,
+                output_price: 2.5,
+                reasoning: Reasoning::None,
+            },
+            Model {
+                id: "kimi-k2-turbo-preview",
+                display_name: "Kimi K2 Turbo",
+                context_window: 256_000,
+                input_price: 1.15,
+                output_price: 8.0,
+                reasoning: Reasoning::None,
+            },
+            Model {
+                id: "kimi-k2-instruct",
+                display_name: "Kimi K2 Instruct",
+                context_window: 128_000,
+                input_price: 0.55,
+                output_price: 2.2,
+                reasoning: Reasoning::None,
+            },
+            Model {
+                id: "kimi-latest",
+                display_name: "Kimi Latest",
+                context_window: 128_000,
+                input_price: 2.0,
+                output_price: 5.0,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -516,6 +657,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.5,
                 output_price: 1.5,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "pixtral-large-latest",
@@ -523,6 +665,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.5,
                 output_price: 1.5,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "mistral-small-latest",
@@ -530,6 +673,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.1,
                 output_price: 0.3,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "ministral-8b-latest",
@@ -537,6 +681,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.1,
                 output_price: 0.1,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "ministral-3b-latest",
@@ -544,6 +689,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.04,
                 output_price: 0.04,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "codestral-latest",
@@ -551,6 +697,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 256_000,
                 input_price: 0.3,
                 output_price: 0.9,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "mistral-medium-latest",
@@ -558,6 +705,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_000,
                 input_price: 2.7,
                 output_price: 8.1,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -574,6 +722,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_050_000,
                 input_price: 5.0,
                 output_price: 30.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gpt-5",
@@ -581,6 +730,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 1_050_000,
                 input_price: 5.0,
                 output_price: 30.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gpt-4.5-preview",
@@ -588,6 +738,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 75.0,
                 output_price: 150.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "o3-pro",
@@ -595,6 +746,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 20.0,
                 output_price: 80.0,
+                reasoning: Reasoning::ReasoningEffort,
             },
             Model {
                 id: "o3-mini",
@@ -602,6 +754,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 1.1,
                 output_price: 4.4,
+                reasoning: Reasoning::ReasoningEffort,
             },
             Model {
                 id: "o1",
@@ -609,6 +762,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 15.0,
                 output_price: 60.0,
+                reasoning: Reasoning::ReasoningEffort,
             },
             Model {
                 id: "o1-preview",
@@ -616,6 +770,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 15.0,
                 output_price: 60.0,
+                reasoning: Reasoning::ReasoningEffort,
             },
             Model {
                 id: "o1-mini",
@@ -623,6 +778,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 3.0,
                 output_price: 12.0,
+                reasoning: Reasoning::ReasoningEffort,
             },
             Model {
                 id: "gpt-4o",
@@ -630,6 +786,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 2.5,
                 output_price: 10.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gpt-4o-mini",
@@ -637,6 +794,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 0.15,
                 output_price: 0.6,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "gpt-4-turbo",
@@ -644,6 +802,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 10.0,
                 output_price: 30.0,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -660,6 +819,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "sonar-v2",
@@ -667,6 +827,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 1.0,
                 output_price: 1.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "sonar-pro",
@@ -674,6 +835,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 3.0,
                 output_price: 15.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "sonar",
@@ -681,6 +843,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 200_000,
                 input_price: 1.0,
                 output_price: 1.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "sonar-reasoning-pro",
@@ -688,6 +851,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 2.0,
                 output_price: 8.0,
+                reasoning: Reasoning::AlwaysOn,
             },
             Model {
                 id: "sonar-reasoning",
@@ -695,6 +859,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 128_000,
                 input_price: 1.0,
                 output_price: 5.0,
+                reasoning: Reasoning::AlwaysOn,
             },
         ],
     },
@@ -711,6 +876,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 1.6,
                 output_price: 6.4,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "qwen-3-turbo",
@@ -718,6 +884,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 0.4,
                 output_price: 1.2,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "qwen-max-latest",
@@ -725,6 +892,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_768,
                 input_price: 1.6,
                 output_price: 6.4,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "qwen-plus",
@@ -732,6 +900,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 0.4,
                 output_price: 1.2,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "qwen-turbo",
@@ -739,6 +908,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 0.1,
                 output_price: 0.3,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "qwen2.5-coder-32b",
@@ -746,6 +916,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_768,
                 input_price: 0.8,
                 output_price: 0.8,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -762,6 +933,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 0.88,
                 output_price: 0.88,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
@@ -769,6 +941,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 3.5,
                 output_price: 3.5,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
@@ -776,6 +949,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 0.18,
                 output_price: 0.18,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "deepseek-ai/DeepSeek-R1",
@@ -783,6 +957,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 163_840,
                 input_price: 3.0,
                 output_price: 7.0,
+                reasoning: Reasoning::AlwaysOn,
             },
             Model {
                 id: "Qwen/Qwen2.5-Coder-32B-Instruct",
@@ -790,6 +965,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 32_768,
                 input_price: 0.8,
                 output_price: 0.8,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -806,6 +982,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 1.25,
                 output_price: 2.5,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "grok-4.20",
@@ -813,6 +990,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 1.25,
                 output_price: 2.5,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "grok-build-0.1",
@@ -820,6 +998,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 1.0,
                 output_price: 2.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "grok-3",
@@ -827,6 +1006,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 2.0,
                 output_price: 10.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "grok-2-latest",
@@ -834,6 +1014,7 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 2.0,
                 output_price: 10.0,
+                reasoning: Reasoning::None,
             },
             Model {
                 id: "grok-1.5",
@@ -841,6 +1022,52 @@ static REGISTRY: &[Provider] = &[
                 context_window: 131_072,
                 input_price: 1.5,
                 output_price: 5.0,
+                reasoning: Reasoning::None,
+            },
+        ],
+    },
+    Provider {
+        // Z.ai (formerly "Ziphu", GWEN-464) — Zhipu AI's GLM models, now branded
+        // Z.ai, on an OpenAI-compatible endpoint.
+        id: "zai",
+        name: "Z.ai",
+        api_key_env: "ZAI_API_KEY",
+        base_url: "https://api.z.ai/api/openai/v1",
+        kind: ProviderKind::OpenAiCompat,
+        models: &[
+            Model {
+                id: "glm-4.6",
+                display_name: "GLM-4.6",
+                context_window: 200_000,
+                input_price: 0.6,
+                output_price: 2.2,
+                // GLM-4.6 exposes a toggleable thinking mode (OpenAI-compat
+                // `thinking` param), closest to a thinking on/off budget.
+                reasoning: Reasoning::ThinkingBudget,
+            },
+            Model {
+                id: "glm-4.5",
+                display_name: "GLM-4.5",
+                context_window: 128_000,
+                input_price: 0.6,
+                output_price: 2.2,
+                reasoning: Reasoning::ThinkingBudget,
+            },
+            Model {
+                id: "glm-4.5-air",
+                display_name: "GLM-4.5 Air",
+                context_window: 128_000,
+                input_price: 0.2,
+                output_price: 1.1,
+                reasoning: Reasoning::ThinkingBudget,
+            },
+            Model {
+                id: "glm-4.5-flash",
+                display_name: "GLM-4.5 Flash",
+                context_window: 128_000,
+                input_price: 0.0,
+                output_price: 0.0,
+                reasoning: Reasoning::None,
             },
         ],
     },
@@ -874,6 +1101,7 @@ mod tests {
             context_window: 128_000,
             input_price: 2.5,
             output_price: 10.0,
+            reasoning: Reasoning::None,
         };
         assert_eq!(m.display(), "128K context window · $2.5/$10 per 1M");
     }
@@ -907,5 +1135,51 @@ mod tests {
         ] {
             assert!(find(id).is_some(), "missing provider: {id}");
         }
+    }
+
+    /// Spot-check the reasoning capability map (M5): the right models get the
+    /// right control, and plain chat models get none.
+    #[test]
+    fn reasoning_capabilities_are_mapped() {
+        let model = |pid: &str, mid: &str| {
+            find(pid)
+                .and_then(|p| p.models.iter().find(|m| m.id == mid))
+                .unwrap_or_else(|| panic!("missing {pid}/{mid}"))
+                .reasoning
+        };
+
+        // Anthropic: adaptive effort vs legacy budget vs always-on vs none.
+        assert_eq!(model("anthropic", "claude-sonnet-5"), Reasoning::Effort);
+        assert_eq!(
+            model("anthropic", "claude-3-7-sonnet-20250219"),
+            Reasoning::BudgetTokens
+        );
+        assert_eq!(model("anthropic", "claude-fable-5"), Reasoning::AlwaysOn);
+        assert_eq!(
+            model("anthropic", "claude-3-5-haiku-20241022"),
+            Reasoning::None
+        );
+
+        // OpenAI: o-series get reasoning_effort, GPT-4o does not.
+        assert_eq!(model("openai", "o1"), Reasoning::ReasoningEffort);
+        assert_eq!(model("openai", "o3-mini"), Reasoning::ReasoningEffort);
+        assert_eq!(model("openai", "gpt-4o"), Reasoning::None);
+
+        // Gemini: thinking_level vs toggleable budget vs always-on.
+        assert_eq!(model("google", "gemini-3.1-pro"), Reasoning::ThinkingLevel);
+        assert_eq!(
+            model("google", "gemini-2.5-flash"),
+            Reasoning::ThinkingBudget
+        );
+        assert_eq!(model("google", "gemini-2.5-pro"), Reasoning::AlwaysOn);
+
+        // Reasoner models on OpenAI-compat providers are always-on.
+        assert_eq!(model("deepseek", "deepseek-reasoner"), Reasoning::AlwaysOn);
+
+        // Derived UI flags.
+        assert!(Reasoning::Effort.has_levels() && Reasoning::Effort.has_max());
+        assert!(Reasoning::ReasoningEffort.has_levels() && !Reasoning::ReasoningEffort.has_max());
+        assert!(Reasoning::ThinkingBudget.has_toggle());
+        assert!(!Reasoning::AlwaysOn.has_levels() && !Reasoning::AlwaysOn.has_toggle());
     }
 }

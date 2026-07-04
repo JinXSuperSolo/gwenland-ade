@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import PreviewPane from "./PreviewPane.svelte";
-  import { initConversationListeners } from "./conversation.svelte";
+  import { initConversationListeners } from "../features/chat/conversation.svelte";
 
   // The detached preview is its own webview (separate JS runtime from the main
   // window): it must subscribe to the same ade:// stream events so output keeps

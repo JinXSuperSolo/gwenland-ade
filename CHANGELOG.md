@@ -12,6 +12,63 @@ directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING
 
 _Nothing yet._
 
+## [0.1.5] — 2026-07-04
+
+M5 (batch 1) — a capability-aware model picker plus three from-scratch content
+renderers (Markdown, KaTeX, Mermaid). Also an `ade-ui/src` reorganization into
+`components/`, `features/`, and `shared/`.
+
+### Added
+
+- Per-model reasoning capability (M5): a `Reasoning` enum on every registry
+  model (`providers.rs`) — `none`, `effort` (Anthropic adaptive low/med/high/max),
+  `budget_tokens` (legacy toggle), `always_on`, `reasoning_effort` (OpenAI
+  o-series low/med/high), `thinking_level` (Gemini 3.x), `thinking_budget`
+  (Gemini 2.5 Flash / GLM toggle). Surfaced through `list_providers` as derived
+  UI flags (`reasoningLevels` / `reasoningToggle` / `reasoningMax`).
+- Capability-aware model picker (`ModelPicker.svelte`): the effort/thinking UI
+  now renders per selected model — a level selector where the model supports one
+  (with `max` only where valid), an on/off toggle for budget-style thinking, an
+  "always on" note for unconditional reasoners, and nothing for plain chat
+  models. `reasoningParams()` (`providers.ts`) maps the chosen level/toggle to
+  the correct wire parameter per provider kind.
+- Markdown renderer from scratch (`markdown.ts` + `Markdown.svelte` /
+  `MarkdownInline.svelte`): headings, nested ordered/unordered lists, GFM tables
+  with alignment, fenced code, blockquotes, thematic breaks, and full inline
+  (bold/italic/strike/code/links/images/autolinks/hard breaks). No dependencies.
+- KaTeX-style math renderer from scratch (`katex.ts` + `Katex.svelte`):
+  fractions, roots, sub/superscripts, Greek + symbol macros, named operators,
+  accents, `\left`/`\right` delimiters, and `$…$` / `$$…$$` spans. Degrades to
+  the escaped source on any parse failure.
+- Mermaid renderer from scratch (`mermaid.ts` + `Mermaid.svelte`): `flowchart`
+  /`graph` (layered layout, all node shapes, edge labels, TD/LR direction) and
+  `sequenceDiagram` (lifelines, arrows, self-messages), emitting themed SVG.
+  Unsupported diagram types degrade to a note with the source.
+- ADE responses now render through the Markdown pipeline in the output thread
+  (`Output.svelte`), routing `mermaid` code fences and math spans to their
+  renderers.
+- Kimi frontier model lineup (K2 series): `kimi-k2-6`, `kimi-k2-6-thinking`,
+  `kimi-k2-5`, `kimi-k2-thinking`, `kimi-k2-0905-preview`, `kimi-k2-turbo-preview`,
+  `kimi-k2-instruct`, and `kimi-latest`.
+
+### Changed
+
+- Reorganized `ade-ui/src` from flat files into `components/`,
+  `features/{chat,renderers,settings}/`, and `shared/` for clearer module
+  boundaries.
+- Kimi provider corrected: the product is **Kimi** (Moonshot AI is the company),
+  so the display name is now "Kimi", the key env is `KIMI_API_KEY`, and the
+  endpoint is `api.moonshot.ai`. Model ids moved to the current `kimi-k2-*` line.
+- Corrected brand icons (`ProviderIcon.svelte`): the official Kimi "K" mark
+  (`#1783FF`) and Z.ai / Zhipu color (`#3859FF`).
+
+### Fixed
+
+- Added the missing `zai` (Z.ai / GLM) provider and `gemini-2.5-flash` model,
+  fixing a failing `spec_providers_all_present` registry test.
+- Fixed an infinite loop in the nested-list Markdown parser (the item-collection
+  loop failed to advance on deeper-indented lines).
+
 ## [0.1.4] — 2026-07-04
 
 M4 — ADE identity & polish: a split-pane workspace with a detachable preview,
@@ -165,7 +222,8 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...v0.1.2

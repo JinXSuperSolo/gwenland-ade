@@ -1,7 +1,7 @@
 import { mount } from "svelte";
 import "./app.css";
 import App from "./App.svelte";
-import PreviewWindow from "./PreviewWindow.svelte";
+import PreviewWindow from "./components/PreviewWindow.svelte";
 
 // design system is class-based (.dark); follow the OS theme
 const media = window.matchMedia("(prefers-color-scheme: dark)");

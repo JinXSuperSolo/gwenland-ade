@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
-  import { onboarding } from "./onboarding.svelte";
+  import { onboarding } from "../shared/onboarding.svelte";
 
   // Cycling example prompts, animated below the welcome line (GWEN-490).
   const examples = [

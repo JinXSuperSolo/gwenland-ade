@@ -1246,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "gwenland-ade"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "keyring",
  "serde",

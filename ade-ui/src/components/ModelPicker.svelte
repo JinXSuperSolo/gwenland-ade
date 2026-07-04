@@ -4,23 +4,36 @@
   import CheckIcon from "phosphor-svelte/lib/CheckIcon";
   import CaretRightIcon from "phosphor-svelte/lib/CaretRightIcon";
   import InfoIcon from "phosphor-svelte/lib/InfoIcon";
-  import { listProviders, type Provider, type Model } from "./providers";
+  import { listProviders, type Provider, type Model } from "../shared/providers";
 
-  // Two-way bound selection: `{ providerId, modelId }`.
+  type Level = "low" | "medium" | "high" | "max";
+
+  // Two-way bound selection + reasoning controls. `effort`/`thinkingOn` are read
+  // by the caller when it streams a completion (see conversation.svelte.ts).
   let {
     providerId = $bindable(),
     modelId = $bindable(),
-  }: { providerId: string; modelId: string } = $props();
+    effort = $bindable("high"),
+    thinkingOn = $bindable(false),
+  }: {
+    providerId: string;
+    modelId: string;
+    effort?: Level;
+    thinkingOn?: boolean;
+  } = $props();
 
   let providers = $state<Provider[]>([]);
   let open = $state(false);
-
-  let effortLevel = $state("Low");
-  const effortLevels = ["Low", "Medium", "High", "Max"];
   let effortMenuOpen = $state(false);
-  let thinkingEnabled = $state(false);
 
-  // Close effort menu when main picker closes
+  const LEVEL_LABEL: Record<Level, string> = {
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    max: "Max",
+  };
+
+  // Close effort menu when main picker closes.
   $effect(() => {
     if (!open) effortMenuOpen = false;
   });
@@ -40,6 +53,26 @@
       if (m) return { provider: p, model: m };
     }
     return null;
+  });
+
+  // Capability of the selected model drives the reasoning UI (M5).
+  const cap = $derived(selected?.model.reasoning ?? "none");
+  const showLevels = $derived(selected?.model.reasoningLevels ?? false);
+  const showToggle = $derived(selected?.model.reasoningToggle ?? false);
+  const alwaysOn = $derived(cap === "always_on");
+  // The effort/thinking section is only meaningful for some capabilities.
+  const showReasoning = $derived(showLevels || showToggle || alwaysOn);
+
+  // Level options adapt: `max` only where the model supports it.
+  const levels = $derived<Level[]>(
+    selected?.model.reasoningMax
+      ? ["low", "medium", "high", "max"]
+      : ["low", "medium", "high"],
+  );
+
+  // Keep the chosen effort valid when switching models (e.g. max → high).
+  $effect(() => {
+    if (!levels.includes(effort)) effort = "high";
   });
 
   function pick(p: Provider, m: Model) {
@@ -94,49 +127,62 @@
         {/each}
       </div>
       
-      <div class="menu-divider"></div>
-      
-      <div class="effort-wrapper">
-        <button class="opt effort-opt" onclick={(e) => { e.stopPropagation(); effortMenuOpen = !effortMenuOpen; }}>
-          <span class="name">Effort</span>
-          <span class="effort-val">{effortLevel} <CaretRightIcon size={12} weight="bold" /></span>
-        </button>
+      {#if showReasoning}
+        <div class="menu-divider"></div>
 
-        {#if effortMenuOpen}
-          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-          <div class="effort-menu" onclick={(e) => e.stopPropagation()}>
-            <p class="disclaimer">Higher effort means more thorough responses, but takes longer and uses your limits faster.</p>
-            <div class="menu-divider" style="margin-bottom: 4px;"></div>
-            
-            <div class="effort-list">
-              {#each effortLevels as level}
-                <button class="effort-level-opt" onclick={() => { effortLevel = level; }}>
-                  <span class="el-name">
-                    {level}
-                    {#if level === 'Low'}<span class="badge">Default</span>{/if}
-                    {#if level === 'Max'}<InfoIcon size={12} class="info-ico" />{/if}
-                  </span>
-                  {#if effortLevel === level}
-                    <span class="effort-check"><CheckIcon size={14} weight="bold" /></span>
-                  {/if}
-                </button>
-              {/each}
-            </div>
+        {#if alwaysOn}
+          <!-- Always-on reasoners (Fable 5, DeepSeek R1, Gemini 2.5 Pro): no
+               control, just a note. -->
+          <div class="opt effort-opt static">
+            <span class="name">Thinking</span>
+            <span class="effort-val">Always on</span>
+          </div>
+        {:else if showLevels}
+          <!-- Discrete level selector: Anthropic effort / OpenAI reasoning_effort
+               / Gemini thinking_level. -->
+          <div class="effort-wrapper">
+            <button class="opt effort-opt" onclick={(e) => { e.stopPropagation(); effortMenuOpen = !effortMenuOpen; }}>
+              <span class="name">Effort</span>
+              <span class="effort-val">{LEVEL_LABEL[effort]} <CaretRightIcon size={12} weight="bold" /></span>
+            </button>
 
-            <div class="menu-divider"></div>
+            {#if effortMenuOpen}
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+              <div class="effort-menu" onclick={(e) => e.stopPropagation()}>
+                <p class="disclaimer">Higher effort means more thorough responses, but takes longer and uses your limits faster.</p>
+                <div class="menu-divider" style="margin-bottom: 4px;"></div>
 
-            <div class="thinking-toggle">
-              <div class="tt-text">
-                <span class="tt-title">Thinking</span>
-                <span class="tt-sub">Can think for more complex tasks</span>
+                <div class="effort-list">
+                  {#each levels as level}
+                    <button class="effort-level-opt" onclick={() => { effort = level; }}>
+                      <span class="el-name">
+                        {LEVEL_LABEL[level]}
+                        {#if level === 'high'}<span class="badge">Default</span>{/if}
+                        {#if level === 'max'}<InfoIcon size={12} class="info-ico" />{/if}
+                      </span>
+                      {#if effort === level}
+                        <span class="effort-check"><CheckIcon size={14} weight="bold" /></span>
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
               </div>
-              <button class="switch" class:on={thinkingEnabled} aria-label="Toggle thinking" aria-pressed={thinkingEnabled} onclick={() => thinkingEnabled = !thinkingEnabled}>
-                <div class="knob"></div>
-              </button>
+            {/if}
+          </div>
+        {:else if showToggle}
+          <!-- Toggleable extended thinking: Anthropic budget_tokens / Gemini
+               thinking_budget / GLM. -->
+          <div class="thinking-toggle">
+            <div class="tt-text">
+              <span class="tt-title">Thinking</span>
+              <span class="tt-sub">Can think for more complex tasks</span>
             </div>
+            <button class="switch" class:on={thinkingOn} aria-label="Toggle thinking" aria-pressed={thinkingOn} onclick={() => thinkingOn = !thinkingOn}>
+              <div class="knob"></div>
+            </button>
           </div>
         {/if}
-      </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -258,9 +304,7 @@
   .opt:hover .name,
   .opt:hover .ico,
   .opt:hover .effort-val,
-  .opt.active .name,
-  .opt.active .ico,
-  .opt.active .effort-val {
+  .opt.active .ico {
     color: var(--primary);
   }
 
@@ -289,7 +333,15 @@
   .effort-opt {
     padding: 8px 12px;
   }
-  
+
+  .effort-opt.static {
+    cursor: default;
+  }
+
+  .effort-opt.static:hover {
+    background: transparent;
+  }
+
   .effort-val {
     display: flex;
     align-items: center;
@@ -347,8 +399,7 @@
     background: color-mix(in srgb, var(--primary) 15%, transparent);
   }
 
-  .effort-level-opt:hover .el-name,
-  .effort-level-opt:hover .info-ico {
+  .effort-level-opt:hover .el-name {
     color: var(--primary);
   }
 
@@ -370,15 +421,12 @@
     color: var(--muted-foreground);
   }
 
-  .info-ico {
-    color: var(--muted-foreground);
-  }
 
   .thinking-toggle {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 4px 4px;
+    padding: 8px 12px;
   }
 
   .tt-text {

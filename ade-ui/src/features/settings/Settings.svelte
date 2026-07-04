@@ -9,10 +9,10 @@
   import ScalesIcon from "phosphor-svelte/lib/ScalesIcon";
   import CheckCircleIcon from "phosphor-svelte/lib/CheckCircleIcon";
   import EyeIcon from "phosphor-svelte/lib/EyeIcon";
-  import ProviderIcon from "./ProviderIcon.svelte";
+  import ProviderIcon from "../../components/ProviderIcon.svelte";
   import SettingsApiKeys from "./SettingsApiKeys.svelte";
   import SettingsMemory from "./SettingsMemory.svelte";
-  import { ui, type SettingsSection } from "./ui.svelte";
+  import { ui, type SettingsSection } from "../../shared/ui.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
 

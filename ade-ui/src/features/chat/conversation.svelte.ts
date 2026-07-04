@@ -19,6 +19,9 @@ export const chat = $state({
   // Selected provider + model, driven by the picker (defaults set on mount).
   providerId: "",
   modelId: "",
+  // Reasoning controls from the picker (M5) — capability-gated per model.
+  effort: "high" as "low" | "medium" | "high" | "max",
+  thinkingOn: false,
   // Set true after the first generate finishes, so the UI can surface the
   // one-time "detach preview" hint (GWEN-490).
   hasGeneratedOnce: false,

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Composer from "./Composer.svelte";
+  import Composer from "../features/chat/Composer.svelte";
   import PreviewPane from "./PreviewPane.svelte";
-  import { ui } from "./ui.svelte";
+  import { ui } from "../shared/ui.svelte";
 
   // Min widths from the spec (GWEN-489).
   const MIN_COMPOSER = 320;

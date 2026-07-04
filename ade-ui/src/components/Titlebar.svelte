@@ -10,7 +10,7 @@
   import MinusIcon from 'phosphor-svelte/lib/MinusIcon';
   import SquareIcon from 'phosphor-svelte/lib/SquareIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
-  import { ui, openSettings } from './ui.svelte';
+  import { ui, openSettings } from '../shared/ui.svelte';
 
   const win = getCurrentWindow();
   const os = platform();

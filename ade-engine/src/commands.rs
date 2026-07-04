@@ -288,6 +288,11 @@ pub fn list_providers() -> Vec<serde_json::Value> {
                         "inputPrice": m.input_price,
                         "outputPrice": m.output_price,
                         "display": m.display(),
+                        // Reasoning capability + derived UI flags (M5).
+                        "reasoning": m.reasoning,
+                        "reasoningLevels": m.reasoning.has_levels(),
+                        "reasoningToggle": m.reasoning.has_toggle(),
+                        "reasoningMax": m.reasoning.has_max(),
                     })
                 })
                 .collect();

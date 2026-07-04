@@ -9,6 +9,16 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type ProviderKind = "anthropic" | "gemini" | "openai_compat";
 
+/// Reasoning/thinking capability, mirrored from the Rust `Reasoning` enum (M5).
+export type Reasoning =
+  | "none"
+  | "effort" // Anthropic adaptive: low/med/high/max
+  | "budget_tokens" // Anthropic legacy extended thinking (toggle)
+  | "always_on" // reasons unconditionally, no control
+  | "reasoning_effort" // OpenAI o-series: low/med/high
+  | "thinking_level" // Gemini 3.x: low/med/high/max
+  | "thinking_budget"; // Gemini 2.5 Flash / GLM (toggle)
+
 export type Model = {
   id: string;
   displayName: string;
@@ -16,7 +26,51 @@ export type Model = {
   inputPrice: number;
   outputPrice: number;
   display: string;
+  reasoning: Reasoning;
+  /// Show a discrete level selector (low/med/high[/max]).
+  reasoningLevels: boolean;
+  /// Show an on/off thinking toggle.
+  reasoningToggle: boolean;
+  /// `max` is a valid level.
+  reasoningMax: boolean;
 };
+
+/// The reasoning parameter a model expects on the wire, given a chosen level
+/// (`"low" | "medium" | "high" | "max"`) and toggle state. Returns a partial
+/// request body to merge, or `{}` when the model takes no reasoning control.
+export function reasoningParams(
+  model: Model,
+  level: "low" | "medium" | "high" | "max",
+  thinkingOn: boolean,
+): Record<string, unknown> {
+  switch (model.reasoning) {
+    case "effort":
+      // Anthropic adaptive effort (Opus 4.6+/Sonnet 4.6+/Sonnet 5).
+      return { thinking: { type: "enabled" }, effort: level };
+    case "budget_tokens":
+      // Anthropic legacy extended thinking — a token budget, off when toggled off.
+      return thinkingOn
+        ? { thinking: { type: "enabled", budget_tokens: 8192 } }
+        : {};
+    case "reasoning_effort":
+      // OpenAI o-series only accepts low/medium/high (no max).
+      return { reasoning_effort: level === "max" ? "high" : level };
+    case "thinking_level":
+      // Gemini 3.x thinking_level (low/medium/high/max).
+      return { generationConfig: { thinkingConfig: { thinkingLevel: level } } };
+    case "thinking_budget":
+      // Gemini 2.5 Flash / GLM — toggleable budget (0 disables).
+      return {
+        generationConfig: {
+          thinkingConfig: { thinkingBudget: thinkingOn ? -1 : 0 },
+        },
+      };
+    case "always_on":
+    case "none":
+    default:
+      return {};
+  }
+}
 
 export type Provider = {
   id: string;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
-  import Feedback from './Feedback.svelte';
+  import Feedback from '../../components/Feedback.svelte';
+  import Markdown from '../renderers/Markdown.svelte';
 
   type Message = { role: 'user' | 'ade'; content: string; prompt?: string };
   let {
@@ -18,7 +19,7 @@
       <div class="msg ade">
         <span class="mark"><SparkleIcon size={15} weight="fill" /></span>
         <div class="body">
-          <p class="content">{msg.content}</p>
+          <div class="content md"><Markdown source={msg.content} /></div>
           {#if i === lastIndex && !isStreaming}
             <Feedback prompt={msg.prompt ?? ''} output={msg.content} />
           {/if}
@@ -57,6 +58,7 @@
   .msg.user .content {
     color: var(--card-foreground);
     font-size: 14px;
+    white-space: pre-wrap;
   }
 
   .msg.ade {
@@ -86,6 +88,10 @@
     letter-spacing: var(--tracking-normal);
     color: var(--foreground);
     line-height: 1.7;
-    white-space: pre-wrap;
+  }
+
+  /* ADE markdown output — block flow, not pre-wrapped. */
+  .content.md {
+    white-space: normal;
   }
 </style>

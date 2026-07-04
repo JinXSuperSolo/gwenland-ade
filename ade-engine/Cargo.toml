@@ -1,6 +1,6 @@
 [package]
 name = "gwenland-ade"
-version = "0.1.4"
+version = "0.1.5"
 description = "GwenLand ADE — agentic-first desktop app"
 authors = ["GwenLand"]
 edition = "2021"

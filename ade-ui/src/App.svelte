@@ -2,14 +2,14 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import Titlebar from "./Titlebar.svelte";
-  import Sidebar from "./Sidebar.svelte";
-  import SplitPane from "./SplitPane.svelte";
-  import StatusBar from "./StatusBar.svelte";
-  import Settings from "./Settings.svelte";
-  import { ui, openSettings } from "./ui.svelte";
-  import { chat, initConversationListeners } from "./conversation.svelte";
-  import { onboarding } from "./onboarding.svelte";
+  import Titlebar from "./components/Titlebar.svelte";
+  import Sidebar from "./components/Sidebar.svelte";
+  import SplitPane from "./components/SplitPane.svelte";
+  import StatusBar from "./components/StatusBar.svelte";
+  import Settings from "./features/settings/Settings.svelte";
+  import { ui, openSettings } from "./shared/ui.svelte";
+  import { chat, initConversationListeners } from "./features/chat/conversation.svelte";
+  import { onboarding } from "./shared/onboarding.svelte";
 
   // Auto-reveal the preview pane the moment there's output to show (or a tool
   // starts producing one). Hidden by default; the titlebar toggle still lets

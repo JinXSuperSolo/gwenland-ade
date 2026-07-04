@@ -3,8 +3,8 @@
   import { invoke } from "@tauri-apps/api/core";
   import BrainIcon from "phosphor-svelte/lib/BrainIcon";
   import FolderSimpleIcon from "phosphor-svelte/lib/FolderSimpleIcon";
-  import { chat } from "./conversation.svelte";
-  import { openSettings } from "./ui.svelte";
+  import { chat } from "../features/chat/conversation.svelte";
+  import { openSettings } from "../shared/ui.svelte";
 
   let workspace = $state<string | null>(null);
 

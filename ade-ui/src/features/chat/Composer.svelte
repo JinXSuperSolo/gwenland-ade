@@ -10,10 +10,10 @@
   import MagicWandIcon from "phosphor-svelte/lib/MagicWandIcon";
   import ChartBarIcon from "phosphor-svelte/lib/ChartBarIcon";
   import PenNibIcon from "phosphor-svelte/lib/PenNibIcon";
-  import ModelPicker from "./ModelPicker.svelte";
-  import OnboardingOverlay from "./OnboardingOverlay.svelte";
+  import ModelPicker from "../../components/ModelPicker.svelte";
+  import OnboardingOverlay from "../../components/OnboardingOverlay.svelte";
   import { chat, isActive, send } from "./conversation.svelte";
-  import { onboarding, dismissWorkspacePrompt, dismissDetachHint } from "./onboarding.svelte";
+  import { onboarding, dismissWorkspacePrompt, dismissDetachHint } from "../../shared/onboarding.svelte";
 
   let value = $state("");
   let active = $derived(isActive());
@@ -111,7 +111,12 @@
           </button>
         </div>
         <div class="side">
-          <ModelPicker bind:providerId={chat.providerId} bind:modelId={chat.modelId} />
+          <ModelPicker
+            bind:providerId={chat.providerId}
+            bind:modelId={chat.modelId}
+            bind:effort={chat.effort}
+            bind:thinkingOn={chat.thinkingOn}
+          />
           <button class="btn-ghost" aria-label="Voice input">
             <MicrophoneIcon size={16} />
           </button>

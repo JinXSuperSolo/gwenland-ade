@@ -2,10 +2,10 @@
   import { invoke } from "@tauri-apps/api/core";
   import CornersOutIcon from "phosphor-svelte/lib/CornersOutIcon";
   import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
-  import Output from "./Output.svelte";
-  import { chat, isActive } from "./conversation.svelte";
-  import { ui } from "./ui.svelte";
-  import { onboarding, maybeShowDetachHint, dismissDetachHint } from "./onboarding.svelte";
+  import Output from "../features/chat/Output.svelte";
+  import { chat, isActive } from "../features/chat/conversation.svelte";
+  import { ui } from "../shared/ui.svelte";
+  import { onboarding, maybeShowDetachHint, dismissDetachHint } from "../shared/onboarding.svelte";
 
   // When true, the pane renders as the standalone detached window's whole body
   // (no detach button, no empty-state chrome). Default is the in-split pane.

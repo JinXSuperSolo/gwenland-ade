@@ -5,7 +5,7 @@
   import LightningIcon from "phosphor-svelte/lib/LightningIcon";
   import FolderSimpleIcon from "phosphor-svelte/lib/FolderSimpleIcon";
   import PaletteIcon from "phosphor-svelte/lib/PaletteIcon";
-  import { ui } from "./ui.svelte";
+  import { ui } from "../shared/ui.svelte";
 
   let hover = $state(false);
   const visible = $derived(hover || ui.sidebarPinned);
