@@ -5,12 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Unreleased changes are staged as fragments in the [`changelog/`](changelog/)
-directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING.md#changelog).
-
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- API Keys screen typography pass (GWEN-502).
+- Model picker padding + bento cards (GWEN-503).
+- Floating preview window + terminal (GWEN-504).
+
+### Planned
+
+Coming soon — tracked, not yet shipped:
+
+- **Plus (`+`) button context menu** — a rich menu on the composer's add button:
+  - Import from GitHub
+  - Create from Figma (Premium)
+  - Upload from computer
+  - Generate Images (toggle)
+  - Skills →
+  - Design Systems →
+  - Folder → (search + create)
+  - Instructions → (search + select + create)
+  - MCPs → (suggested list + custom)
+  - Full Permissions → (Ask / Auto / Full)
+- **Agent state UX** — shimmer while thinking + completion toast.
+- **Error filtering** — surface only actionable errors in the thread.
+
+## [0.1.6] — 2026-07-04
+
+M5 (batch 2) — the agent comes alive: a real provider-driven tool loop, the
+GL_ tool suite, and a Claude.ai-style chat + on-demand artifact preview.
+
+### Added
+
+- GL_ agent tool suite (`tools.rs`): 12 workspace-sandboxed tools — `GL_Read_File`,
+  `GL_Write_File`, `GL_Edit_File`, `GL_Delete_File`, `GL_List_Dir`, `GL_Grep`,
+  `GL_Glob`, `GL_Git_Diff`, `GL_Bash`, `GL_Diagnostics`, `GL_Ask_User`, and
+  `GL_Open_Browser`. Every path-taking tool is resolved against the workspace
+  root and rejects escapes (`..`, absolute paths, symlink traversal); shell tools
+  dispatch to the OS-native tooling (PowerShell on Windows, `grep`/`find`/`sh`
+  elsewhere). `GL_Bash` runs with a timeout and captured output.
+- Real agent tool-loop (`conversation.svelte.ts` + `providers.ts`): `send()` now
+  streams from the selected provider with the GL_ tools registered, runs any tool
+  calls via `callTool`, feeds results back, and repeats until the model answers.
+  Tool-use is implemented for all three provider shapes — Anthropic `tool_use`,
+  OpenAI `tool_calls`, and Gemini `functionCall`.
+- Inline tool activity + GL_Ask_User (`ToolCall.svelte`, `AskPrompt.svelte`):
+  Claude.ai-style collapsible tool rows (running → done/error) and an inline
+  question prompt with clickable options or a free-text reply, backed by the
+  `gl_ask_user` / `gl_answer_user` request/response channel.
+- On-demand artifact preview: a new `GL_OpenPreview` tool renders an artifact
+  (HTML / Markdown / Mermaid / code) in a side pane. HTML runs in a sandboxed
+  iframe; Markdown and Mermaid go through the from-scratch renderers. The pane is
+  hidden by default and opens (with a slide/fade transition) when the agent shows
+  a result. `tauri-plugin-opener` powers `GL_Open_Browser`.
+- Provider-neutral tool schema + dispatcher (`shared/tools.ts`): typed `GL.*`
+  wrappers, a `GL_TOOLS` JSON-Schema array translatable to Anthropic/OpenAI/Gemini
+  tool formats, and a `callTool(name, args)` router.
+
+### Changed
+
+- Chat is now the main view (`ChatView.svelte`): the conversation thread fills
+  the primary surface with the composer docked at the bottom (Claude.ai layout),
+  extracted into a standalone `ConversationView.svelte` shared by the in-split and
+  detached surfaces. The preview pane became a separate, hidden-by-default artifact
+  panel that opens only on `GL_OpenPreview` — fixing the cramped/right-clipped
+  output layout.
+- Opening/closing the preview pane animates (grid-track + slide/fade transition);
+  the resize handle skips the animation while dragging.
+
+### Fixed
+
+- The conversation was only rendered inside the preview pane, so hiding the pane
+  hid the chat; the chat now lives in its own main view.
+- Robust API-key check before streaming: a keychain read error no longer surfaces
+  as a raw error, and an empty key gives a clear "set up your token" message.
 
 ## [0.1.5] — 2026-07-04
 
@@ -222,7 +291,8 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...v0.1.3

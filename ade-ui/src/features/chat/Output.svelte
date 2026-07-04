@@ -2,14 +2,15 @@
   import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
   import Feedback from '../../components/Feedback.svelte';
   import Markdown from '../renderers/Markdown.svelte';
+  import ToolCall from './ToolCall.svelte';
+  import AskPrompt from './AskPrompt.svelte';
+  import type { Message } from './conversation.svelte';
 
-  type Message = { role: 'user' | 'ade'; content: string; prompt?: string };
   let {
     messages,
     isStreaming = false,
   }: { messages: Message[]; isStreaming?: boolean } = $props();
 
-  // Feedback attaches only to the last ADE message, once it's finished streaming.
   let lastIndex = $derived(messages.length - 1);
 </script>
 
@@ -19,8 +20,23 @@
       <div class="msg ade">
         <span class="mark"><SparkleIcon size={15} weight="fill" /></span>
         <div class="body">
-          <div class="content md"><Markdown source={msg.content} /></div>
-          {#if i === lastIndex && !isStreaming}
+          {#if msg.blocks && msg.blocks.length}
+            {#each msg.blocks as block}
+              {#if block.kind === 'text'}
+                {#if block.text.trim()}
+                  <div class="content md"><Markdown source={block.text} /></div>
+                {/if}
+              {:else if block.kind === 'tool'}
+                <ToolCall {block} />
+              {:else if block.kind === 'ask'}
+                <AskPrompt {block} />
+              {/if}
+            {/each}
+          {:else}
+            <div class="content md"><Markdown source={msg.content} /></div>
+          {/if}
+
+          {#if i === lastIndex && !isStreaming && msg.content.trim()}
             <Feedback prompt={msg.prompt ?? ''} output={msg.content} />
           {/if}
         </div>
@@ -37,12 +53,14 @@
   .output {
     width: 100%;
     max-width: 680px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 24px;
     overflow-y: auto;
-    padding: 80px 0 24px;
-    flex: 1;
+    overflow-x: hidden;
+    padding: 80px 20px 24px;
+    height: 100%;
   }
 
   .msg.user {
@@ -90,7 +108,6 @@
     line-height: 1.7;
   }
 
-  /* ADE markdown output — block flow, not pre-wrapped. */
   .content.md {
     white-space: normal;
   }

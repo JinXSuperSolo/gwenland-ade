@@ -1,23 +1,14 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import CornersOutIcon from "phosphor-svelte/lib/CornersOutIcon";
+  import XIcon from "phosphor-svelte/lib/XIcon";
   import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
-  import Output from "../features/chat/Output.svelte";
-  import { chat, isActive } from "../features/chat/conversation.svelte";
+  import Markdown from "../features/renderers/Markdown.svelte";
+  import Mermaid from "../features/renderers/Mermaid.svelte";
+  import { artifact, closeArtifact } from "../features/chat/artifact.svelte";
   import { ui } from "../shared/ui.svelte";
-  import { onboarding, maybeShowDetachHint, dismissDetachHint } from "../shared/onboarding.svelte";
 
-  // When true, the pane renders as the standalone detached window's whole body
-  // (no detach button, no empty-state chrome). Default is the in-split pane.
-  let { detachedView = false }: { detachedView?: boolean } = $props();
-
-  let active = $derived(isActive());
-
-  // Surface the one-time "detach preview" hint after the first generate
-  // (GWEN-490). Only fires in the in-split pane, for first-time users.
-  $effect(() => {
-    if (!detachedView && chat.hasGeneratedOnce) maybeShowDetachHint();
-  });
+  const current = $derived(artifact.current);
 
   async function detach() {
     try {
@@ -29,34 +20,37 @@
   }
 </script>
 
-<div class="preview" class:detached-view={detachedView}>
-  {#if !detachedView}
-    <div class="bar" data-tauri-drag-region>
-      <span class="label">Preview</span>
-      <div class="detach-wrap">
-        {#if onboarding.showDetachHint}
-          <span class="hint">Tip: pop the output out into a floating window →</span>
-        {/if}
-        <button class="detach" onclick={detach} aria-label="Detach preview into a floating window" title="Detach preview">
-          <CornersOutIcon size={15} />
-        </button>
-      </div>
+<div class="preview">
+  <div class="bar" data-tauri-drag-region>
+    <span class="label">{current?.title ?? "Preview"}</span>
+    <div class="actions">
+      <button class="icon-btn" onclick={detach} aria-label="Detach preview" title="Detach preview">
+        <CornersOutIcon size={15} />
+      </button>
+      <button class="icon-btn" onclick={closeArtifact} aria-label="Close preview" title="Close preview">
+        <XIcon size={15} />
+      </button>
     </div>
-  {/if}
+  </div>
 
   <div class="pane-body">
-    {#if ui.previewDetached && !detachedView}
+    {#if !current}
       <div class="empty">
         <span class="mark"><SparkleIcon size={22} weight="fill" /></span>
-        <p>Preview is open in a separate window.</p>
+        <p>Artifacts the agent renders will appear here.</p>
       </div>
-    {:else if active}
-      <Output messages={chat.messages} isStreaming={chat.isStreaming} />
+    {:else if current.kind === "html"}
+      <iframe
+        title={current.title}
+        srcdoc={current.content}
+        sandbox="allow-scripts"
+      ></iframe>
+    {:else if current.kind === "mermaid"}
+      <div class="doc"><Mermaid source={current.content} /></div>
+    {:else if current.kind === "markdown"}
+      <div class="doc md"><Markdown source={current.content} /></div>
     {:else}
-      <div class="empty">
-        <span class="mark"><SparkleIcon size={22} weight="fill" /></span>
-        <p>Output appears here once you describe something.</p>
-      </div>
+      <pre class="doc code"><code>{current.content}</code></pre>
     {/if}
   </div>
 </div>
@@ -75,43 +69,27 @@
     align-items: center;
     justify-content: space-between;
     height: 36px;
-    padding: 0 10px 0 16px;
+    padding: 0 8px 0 16px;
     flex-shrink: 0;
   }
 
   .label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted-foreground);
-    opacity: 0.7;
+    color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     user-select: none;
   }
 
-  .detach-wrap {
+  .actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: 2px;
+    flex-shrink: 0;
   }
 
-  .hint {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 12%, transparent);
-    padding: 3px 8px;
-    border-radius: calc(var(--radius) - 8px);
-    white-space: nowrap;
-    animation: hint-in 0.25s ease;
-  }
-
-  @keyframes hint-in {
-    from { opacity: 0; transform: translateX(6px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .detach {
+  .icon-btn {
     display: flex;
     width: 28px;
     height: 28px;
@@ -124,8 +102,7 @@
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
-
-  .detach:hover {
+  .icon-btn:hover {
     background: color-mix(in srgb, var(--primary) 15%, transparent);
     color: var(--primary);
   }
@@ -133,14 +110,26 @@
   .pane-body {
     flex: 1;
     min-height: 0;
-    display: flex;
-    justify-content: center;
-    overflow: hidden;
+    overflow: auto;
     animation: fade-in 0.3s ease;
   }
 
-  .detached-view .pane-body {
-    padding-top: 12px;
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;
+  }
+
+  .doc {
+    padding: 20px 24px;
+  }
+  .doc.code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--foreground);
+    white-space: pre;
   }
 
   .empty {
@@ -154,12 +143,10 @@
     text-align: center;
     padding: 0 32px;
   }
-
   .empty .mark {
     color: var(--primary);
     opacity: 0.6;
   }
-
   .empty p {
     font-family: var(--font-sans);
     font-size: 13px;

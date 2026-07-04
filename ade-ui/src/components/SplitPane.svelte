@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Composer from "../features/chat/Composer.svelte";
+  import ChatView from "../features/chat/ChatView.svelte";
   import PreviewPane from "./PreviewPane.svelte";
   import { ui } from "../shared/ui.svelte";
 
-  // Min widths from the spec (GWEN-489).
-  const MIN_COMPOSER = 320;
-  const MIN_PREVIEW = 400;
+  // Min widths: the chat stays the primary surface; the artifact preview opens
+  // beside it (GWEN-489, revised for the artifact-preview model).
+  const MIN_COMPOSER = 360;
+  const MIN_PREVIEW = 380;
   const STORAGE_KEY = "ade.splitRatio";
 
   // Fraction of total width allotted to the composer (left) pane.
@@ -43,10 +44,15 @@
   // The right pane is shown only when the preview is visible AND not detached.
   // Otherwise the composer takes the full width.
   let showPreview = $derived(ui.previewVisible && !ui.previewDetached);
+
+  // The grid keeps three tracks at all times so opening/closing the preview
+  // animates smoothly (a track-count change can't transition). When hidden, the
+  // handle + preview tracks collapse to 0 and the transition on the grid width
+  // slides the chat to full width.
   let columns = $derived(
     showPreview
       ? `minmax(${MIN_COMPOSER}px, ${ratio}fr) 6px minmax(${MIN_PREVIEW}px, ${1 - ratio}fr)`
-      : "1fr",
+      : `1fr 0px 0px`,
   );
 
   onMount(() => {
@@ -63,30 +69,31 @@
   });
 </script>
 
-<div class="split" bind:this={container} style="grid-template-columns: {columns};">
+<div class="split" class:preview-open={showPreview} bind:this={container} style="grid-template-columns: {columns};">
   <div class="pane composer-pane">
-    <Composer />
+    <ChatView />
   </div>
 
-  {#if showPreview}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="handle"
-      class:dragging
-      onpointerdown={onPointerDown}
-      onpointermove={onPointerMove}
-      onpointerup={onPointerUp}
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize panes"
-    >
-      <span class="grip"></span>
-    </div>
+  <!-- Handle + preview stay mounted so the open/close animates; they collapse
+       to zero width and become non-interactive when hidden. -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="handle"
+    class:dragging
+    onpointerdown={showPreview ? onPointerDown : undefined}
+    onpointermove={showPreview ? onPointerMove : undefined}
+    onpointerup={showPreview ? onPointerUp : undefined}
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize panes"
+    aria-hidden={!showPreview}
+  >
+    <span class="grip"></span>
+  </div>
 
-    <div class="pane preview-pane">
-      <PreviewPane />
-    </div>
-  {/if}
+  <div class="pane preview-pane" aria-hidden={!showPreview}>
+    <PreviewPane />
+  </div>
 </div>
 
 <style>
@@ -95,6 +102,14 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
+    /* Animate the column tracks so the preview slides open/closed. Skipped
+       mid-drag (see .dragging) so resizing stays 1:1 with the pointer. */
+    transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* No column animation while actively dragging the handle. */
+  .split:has(.handle.dragging) {
+    transition: none;
   }
 
   .pane {
@@ -113,6 +128,17 @@
     background: color-mix(in srgb, var(--card) 55%, var(--background));
     border-radius: var(--radius) 0 0 0;
     box-shadow: inset 2px 0 6px -4px var(--shadow-color, #000);
+    /* Slide + fade the content in from the right as the track opens. */
+    opacity: 0;
+    transform: translateX(16px);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .split.preview-open .preview-pane {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
   }
 
   .handle {
@@ -122,6 +148,14 @@
     align-items: center;
     justify-content: center;
     touch-action: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+
+  .split.preview-open .handle {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .grip {

@@ -22,7 +22,6 @@ cd .. && cargo tauri dev
 
 - `ade-engine/` — Rust + Tauri 2 backend (the binary)
 - `ade-ui/` — Svelte 5 (runes) + Vite frontend
-- `changelog/` — unreleased changelog fragments (see below)
 
 ## Before you open a PR
 
@@ -56,25 +55,25 @@ Reference the relevant ticket (e.g. `GWEN-481`) in the body when applicable.
 
 ## Changelog
 
-We keep unreleased changes as fragments in the [`changelog/`](changelog/)
-directory instead of editing `CHANGELOG.md` directly (this avoids merge
-conflicts). Add a short file per change, named `<type>-<slug>.md`, where
-`<type>` is one of `added`, `changed`, `deprecated`, `removed`, `fixed`, or
-`security` — for example `changelog/added-memory-seed.md`:
+We record notable changes directly in [CHANGELOG.md](CHANGELOG.md), following
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Add your entry under
+the `## [Unreleased]` heading in the appropriate group (`Added`, `Changed`,
+`Deprecated`, `Removed`, `Fixed`, or `Security`):
 
 ```md
+## [Unreleased]
+
 ### Added
 - Auto-create `failures.md` and `preferences.md` on first run (GWEN-482).
 ```
 
-At release time these fragments are collected into [CHANGELOG.md](CHANGELOG.md)
-under the new version and the directory is cleared. See
-[`changelog/README.md`](changelog/README.md) for details.
+At release time the `Unreleased` entries move under a new version heading with
+the date and compare link.
 
 ## Pull requests
 
 1. Fork and create a topic branch (`feat/…`, `fix/…`, `docs/…`).
-2. Make your change, add a changelog fragment, and run the checks above.
+2. Make your change, add a `CHANGELOG.md` entry under `Unreleased`, and run the checks above.
 3. Open a PR describing **what** changed and **why**. Link related issues.
 4. Be responsive to review feedback.
 

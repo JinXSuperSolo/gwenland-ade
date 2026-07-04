@@ -8,17 +8,8 @@
   import StatusBar from "./components/StatusBar.svelte";
   import Settings from "./features/settings/Settings.svelte";
   import { ui, openSettings } from "./shared/ui.svelte";
-  import { chat, initConversationListeners } from "./features/chat/conversation.svelte";
+  import { initConversationListeners } from "./features/chat/conversation.svelte";
   import { onboarding } from "./shared/onboarding.svelte";
-
-  // Auto-reveal the preview pane the moment there's output to show (or a tool
-  // starts producing one). Hidden by default; the titlebar toggle still lets
-  // the user hide/show it manually afterwards.
-  $effect(() => {
-    if (chat.messages.length > 0 && !ui.previewVisible && !ui.previewDetached) {
-      ui.previewVisible = true;
-    }
-  });
 
   onMount(() => {
     const cleanup = initConversationListeners();

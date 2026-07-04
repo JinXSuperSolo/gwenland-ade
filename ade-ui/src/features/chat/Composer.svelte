@@ -158,9 +158,12 @@
     padding: 0 24px 20px;
   }
 
-  /* In the split layout the composer sits at the bottom of its (left) pane. */
+  /* Active: the composer is docked at the bottom by ChatView, so it sizes to
+     content rather than filling the height. */
   .layout.active {
+    height: auto;
     justify-content: flex-end;
+    padding-top: 8px;
   }
 
   .idle-title {
