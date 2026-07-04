@@ -12,6 +12,41 @@ directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING
 
 _Nothing yet._
 
+## [0.1.3] — 2026-07-04
+
+Multi-provider support: a typed model registry, secure key storage, and a
+model-picker in the composer.
+
+### Added
+
+- Model provider registry (`providers.rs`) — typed, static seed for 14 providers
+  with model, context window, and pricing data; three request shapes
+  (`Anthropic` / `Gemini` / `OpenAiCompat`) cover all of them (GWEN-464..469).
+- New providers: Ziphu (GWEN-464), Groq (GWEN-465), Cohere (GWEN-466),
+  Perplexity (GWEN-467), Together AI (GWEN-468).
+- Data-driven Settings → API Keys screen (`Settings.svelte`): masked input +
+  show/hide per provider, grouped (default three, then alphabetical),
+  scrollable. Adding a provider to the registry surfaces it here automatically
+  (GWEN-469).
+- API-key storage in the OS keychain via the `keyring` crate (`save_api_key` /
+  `get_api_key` / `has_api_key`), with env-var fallback.
+- From-scratch provider chat clients (`providers.ts`): `fetch` + SSE streaming,
+  no HTTP dependency added to the Rust binary.
+- Model selector dropdown in the composer (`ModelPicker.svelte`): provider icon
+  + model name + `context · $in/$out per 1M` subtitle, grouped by provider,
+  opens upward. Replaces the placeholder "ADE Mini" button.
+- Vendored provider brand marks (`ProviderIcon.svelte`) — single-path
+  `currentColor` SVGs extracted from `@lobehub/icons` at build time; the package
+  is not a runtime dependency. Used in both the picker and Settings.
+
+### Changed
+
+- Ziphu (GWEN-464) resolved: "Ziphu" is Zhipu AI, now branded Z.ai — the same
+  company as the existing GLM/Z.AI provider. Merged into a single `zai` entry
+  with the real `api.z.ai/api/openai/v1` endpoint and current GLM models (5.2,
+  5, 4.7, 4.6, 4.5-Air) from Z.ai's official pricing. Dropped the placeholder
+  `ziphu`/`glm` duplicates.
+
 ## [0.1.2] — 2026-07-03
 
 The human-in-the-loop feedback batch: capture accept/reject/tweak, turn it into
@@ -85,7 +120,8 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/JinXSuperSolo/gwenland-ade/releases/tag/v0.1.0
