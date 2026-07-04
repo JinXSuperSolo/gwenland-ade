@@ -12,6 +12,51 @@ directory and collected here at release time. See [CONTRIBUTING.md](CONTRIBUTING
 
 _Nothing yet._
 
+## [0.1.4] — 2026-07-04
+
+M4 — ADE identity & polish: a split-pane workspace with a detachable preview,
+first-time onboarding, and a Settings hub that houses the memory viewer and
+export/import.
+
+### Added
+
+- Split-pane workspace (GWEN-489): resizable composer/preview layout
+  (`SplitPane.svelte`) with a drag handle, min widths, and a ratio persisted to
+  `localStorage`. Conversation state moved to a shared runes module
+  (`conversation.svelte.ts`) so both panes read one source of truth.
+- Detachable preview: `open_preview_window` (`window.rs`) pops the output into a
+  second Tauri window (`PreviewWindow.svelte`, loaded via `index.html?preview`);
+  closing it re-attaches automatically via an `ade://preview-closed` event.
+- Thin status bar (`StatusBar.svelte`, 28px) showing workspace name, a Memory
+  shortcut, and the active model.
+- First-time onboarding (GWEN-490): a guided composer empty-state
+  (`OnboardingOverlay.svelte`) shown when there's no memory yet, detected via a
+  new `has_memory` command. Prompts for a workspace on first interaction and
+  surfaces a one-time, auto-dismissing "detach preview" hint after the first
+  generate.
+- `get_username` command for the composer greeting (previously called by the UI
+  but never registered).
+- Settings hub with a bento-style launcher (`Settings.svelte`): a hero
+  "Set up Token" card with an animated fill-and-delete API-key mockup, plus
+  Memory and About panels with icon list-rows. Cards open each section full-view
+  with a back arrow.
+- In-app memory viewer/editor (GWEN-491), now a Settings section
+  (`SettingsMemory.svelte`): tabs for `failures.md` / `preferences.md`, an
+  editable textarea, and Save, backed by `read_memory_file` / `write_memory_file`
+  commands. Reachable via the gear, `Ctrl+M`, or the status-bar Memory button.
+- Memory export/import (GWEN-492): `export_memory` / `import_memory` commands zip
+  and restore the memory directory through native dialogs, with an overwrite
+  confirmation on import. Adds the `zip` crate (deflate-only, size-tuned).
+
+### Changed
+
+- The preview pane is now hidden by default (full-width centered composer) and
+  auto-reveals once there's output to show. A titlebar toggle (top-right, by the
+  window controls) shows/hides it manually.
+- Memory moved out of a slide-in panel into the Settings hub; the standalone
+  `MemoryPanel.svelte` was removed. `Ctrl+M` and the status-bar Memory button now
+  deep-link to Settings → Memory.
+
 ## [0.1.3] — 2026-07-04
 
 Multi-provider support: a typed model registry, secure key storage, and a
@@ -120,7 +165,8 @@ Initial milestone (M1) — foundation.
 - Release profile is size-tuned (`opt-level = "z"`, `lto`, `strip`,
   `panic = "abort"`, `codegen-units = 1`).
 
-[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/JinXSuperSolo/gwenland-ade/compare/v0.1.0...v0.1.1

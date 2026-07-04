@@ -163,6 +163,50 @@ pub fn list_memories() -> io::Result<Vec<String>> {
     Ok(names)
 }
 
+/// Whether ADE has any memory yet — used for first-time onboarding detection
+/// (GWEN-490). True once the `preferences.md` seed exists (created on first run
+/// via [`init_memory`]), so a returning user with an initialized memory dir is
+/// not treated as first-time.
+pub fn has_memory() -> bool {
+    memory_path("preferences")
+        .map(|p| p.exists())
+        .unwrap_or(false)
+}
+
+/// Resolves a user-facing memory filename (e.g. `failures.md`) to a path inside
+/// the memory dir, rejecting anything that would escape it. Unlike
+/// [`memory_path`] this takes the full `*.md` filename, for the memory
+/// viewer/editor (GWEN-491).
+fn memory_file_path(filename: &str) -> io::Result<PathBuf> {
+    if filename.is_empty()
+        || filename.contains(['/', '\\'])
+        || filename.contains("..")
+        || !filename.ends_with(".md")
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid memory filename",
+        ));
+    }
+    Ok(memory_dir()?.join(filename))
+}
+
+/// Reads a memory file by full filename (`failures.md`), returning an empty
+/// string when it doesn't exist yet so the editor can start blank instead of
+/// erroring (GWEN-491).
+pub fn read_memory_file(filename: &str) -> io::Result<String> {
+    match fs::read_to_string(memory_file_path(filename)?) {
+        Ok(s) => Ok(s),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Writes a memory file by full filename, creating the memory dir if needed.
+pub fn write_memory_file(filename: &str, content: &str) -> io::Result<()> {
+    fs::write(memory_file_path(filename)?, content)
+}
+
 pub fn read_memory(name: &str) -> io::Result<String> {
     fs::read_to_string(memory_path(name)?)
 }

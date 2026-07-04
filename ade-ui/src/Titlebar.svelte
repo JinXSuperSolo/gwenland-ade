@@ -2,6 +2,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { platform } from '@tauri-apps/plugin-os';
   import SidebarSimpleIcon from 'phosphor-svelte/lib/SidebarSimpleIcon';
+  import LayoutIcon from 'phosphor-svelte/lib/LayoutIcon';
   import GearSixIcon from 'phosphor-svelte/lib/GearSixIcon';
   import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
   import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
@@ -9,7 +10,7 @@
   import MinusIcon from 'phosphor-svelte/lib/MinusIcon';
   import SquareIcon from 'phosphor-svelte/lib/SquareIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
-  import { ui } from './ui.svelte';
+  import { ui, openSettings } from './ui.svelte';
 
   const win = getCurrentWindow();
   const os = platform();
@@ -44,10 +45,23 @@
     <button
       class="nav-btn"
       class:active={ui.settingsOpen}
-      onclick={() => (ui.settingsOpen = true)}
+      onclick={() => openSettings()}
       aria-label="Settings"
     >
       <GearSixIcon size={15} />
+    </button>
+  </div>
+
+  <!-- Right-aligned actions: preview toggle sits by the window controls. -->
+  <div class="actions" class:win-offset={!isMac}>
+    <button
+      class="nav-btn"
+      class:active={ui.previewVisible}
+      onclick={() => (ui.previewVisible = !ui.previewVisible)}
+      aria-label="Toggle preview pane"
+      title="Toggle preview"
+    >
+      <LayoutIcon size={15} />
     </button>
   </div>
 
@@ -79,6 +93,19 @@
 
   .nav.mac-offset {
     left: 84px;
+  }
+
+  /* Right-aligned action group (preview toggle). On Windows it clears the
+     three 46px caption buttons; on macOS it sits flush right. */
+  .actions {
+    position: absolute;
+    right: 8px;
+    display: flex;
+    gap: 2px;
+  }
+
+  .actions.win-offset {
+    right: 146px;
   }
 
   .nav-btn {

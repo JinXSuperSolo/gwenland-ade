@@ -1,7 +1,5 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
-  import { onMount } from "svelte";
   import type { Component } from "svelte";
   import type { IconComponentProps } from "phosphor-svelte";
   import PlusIcon from "phosphor-svelte/lib/PlusIcon";
@@ -12,27 +10,23 @@
   import MagicWandIcon from "phosphor-svelte/lib/MagicWandIcon";
   import ChartBarIcon from "phosphor-svelte/lib/ChartBarIcon";
   import PenNibIcon from "phosphor-svelte/lib/PenNibIcon";
-  import Output from "./Output.svelte";
   import ModelPicker from "./ModelPicker.svelte";
-
-  type Message = { role: "user" | "ade"; content: string; prompt?: string };
+  import OnboardingOverlay from "./OnboardingOverlay.svelte";
+  import { chat, isActive, send } from "./conversation.svelte";
+  import { onboarding, dismissWorkspacePrompt, dismissDetachHint } from "./onboarding.svelte";
 
   let value = $state("");
-  let messages = $state<Message[]>([]);
-  // Selected provider + model, driven by the picker (defaults set on mount).
-  let providerId = $state("");
-  let modelId = $state("");
-  let lastPrompt = $state("");
-  let isActive = $derived(messages.length > 0);
-  let isStreaming = $state(false);
-  let canSend = $derived(value.trim().length > 0 && !isStreaming);
+  let active = $derived(isActive());
+  let canSend = $derived(value.trim().length > 0 && !chat.isStreaming);
   let textarea = $state<HTMLTextAreaElement>();
 
   let username = $state("");
-  invoke<string>("get_username").then((name) => {
-    const n = name.trim();
-    username = n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
-  }).catch(() => {});
+  invoke<string>("get_username")
+    .then((name) => {
+      const n = name.trim();
+      username = n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
+    })
+    .catch(() => {});
 
   const chips: { label: string; icon: Component<IconComponentProps> }[] = [
     { label: "Code", icon: CodeIcon },
@@ -41,51 +35,32 @@
     { label: "Write", icon: PenNibIcon },
   ];
 
-  onMount(() => {
-    const unlistenToken = listen<string>('ade://token', (e) => {
-      const last = messages[messages.length - 1];
-      if (last?.role === 'ade') {
-        messages[messages.length - 1] = {
-          ...last,
-          content: last.content + e.payload,
-        };
-      } else {
-        // Tag the response with the prompt that produced it, for feedback.
-        messages.push({ role: 'ade', content: e.payload, prompt: lastPrompt });
-      }
-    });
-
-    const unlistenDone = listen('ade://done', () => {
-      isStreaming = false;
-    });
-
-    const unlistenError = listen<string>('ade://error', (e) => {
-      isStreaming = false;
-      messages.push({ role: 'ade', content: `⚠ Error: ${e.payload}` });
-    });
-
-    return () => {
-      unlistenToken.then(fn => fn());
-      unlistenDone.then(fn => fn());
-      unlistenError.then(fn => fn());
-    };
-  });
-
   async function submit() {
+    // First-time users must pick a workspace before the first generate.
+    if (onboarding.isFirstTime && !onboarding.workspaceChosen) {
+      await requestWorkspace();
+      if (!onboarding.workspaceChosen) return;
+    }
     const text = value.trim();
-    if (!text || isStreaming) return;
-
-    messages.push({ role: "user", content: text });
-    lastPrompt = text;
+    if (!text || chat.isStreaming) return;
     value = "";
-    isStreaming = true;
     autoResize();
+    await send(text);
+  }
 
-    try {
-      await invoke('generate', { request: { prompt: text } });
-    } catch (err) {
-      isStreaming = false;
-      messages.push({ role: 'ade', content: `⚠ Error: ${err}` });
+  /// Triggers the native workspace picker during onboarding (GWEN-490).
+  async function requestWorkspace() {
+    const path = await invoke<string | null>("pick_workspace").catch(() => null);
+    if (path) {
+      onboarding.workspaceChosen = true;
+      dismissWorkspacePrompt();
+    }
+  }
+
+  function onComposerActivate() {
+    // First composer interaction for a first-timer → prompt for a workspace.
+    if (onboarding.isFirstTime && !onboarding.workspaceChosen) {
+      requestWorkspace();
     }
   }
 
@@ -97,23 +72,25 @@
   }
 
   function autoResize() {
+    // Typing dismisses the one-time detach hint (GWEN-490).
+    if (onboarding.showDetachHint) dismissDetachHint();
     if (!textarea) return;
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, 300) + "px";
   }
 </script>
 
-<div class="layout" class:active={isActive}>
-  {#if isActive}
-    <Output {messages} {isStreaming} />
-  {/if}
-
+<div class="layout" class:active>
   <div class="composer-wrap">
-    {#if !isActive}
-      <h2 class="idle-title">
-        <span class="mark"><SparkleIcon size={30} weight="fill" /></span>
-        Hello{username ? `, ${username}` : ""}
-      </h2>
+    {#if !active}
+      {#if onboarding.isFirstTime}
+        <OnboardingOverlay />
+      {:else}
+        <h2 class="idle-title">
+          <span class="mark"><SparkleIcon size={30} weight="fill" /></span>
+          Hello{username ? `, ${username}` : ""}
+        </h2>
+      {/if}
     {/if}
 
     <div class="composer">
@@ -122,7 +99,8 @@
         bind:value
         onkeydown={handleKeydown}
         oninput={autoResize}
-        placeholder={isActive ? "Reply to ADE..." : "How can I help you today?"}
+        onfocus={onComposerActivate}
+        placeholder={active ? "Reply to ADE..." : "How can I help you today?"}
         rows="1"
       ></textarea>
 
@@ -133,7 +111,7 @@
           </button>
         </div>
         <div class="side">
-          <ModelPicker bind:providerId bind:modelId />
+          <ModelPicker bind:providerId={chat.providerId} bind:modelId={chat.modelId} />
           <button class="btn-ghost" aria-label="Voice input">
             <MicrophoneIcon size={16} />
           </button>
@@ -149,7 +127,7 @@
       </div>
     </div>
 
-    {#if !isActive}
+    {#if !active}
       <div class="chips">
         {#each chips as chip}
           {@const Icon = chip.icon}
@@ -175,6 +153,7 @@
     padding: 0 24px 20px;
   }
 
+  /* In the split layout the composer sits at the bottom of its (left) pane. */
   .layout.active {
     justify-content: flex-end;
   }

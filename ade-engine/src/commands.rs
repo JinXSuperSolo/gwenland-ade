@@ -146,6 +146,124 @@ pub async fn record_feedback(request: FeedbackRequest) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
+// Memory panel: first-time detection + file read/write (GWEN-490, GWEN-491)
+// ---------------------------------------------------------------------------
+
+/// Best-effort local username for the composer greeting.
+#[tauri::command]
+pub fn get_username() -> String {
+    std::env::var("USERNAME")
+        .or_else(|_| std::env::var("USER"))
+        .unwrap_or_default()
+}
+
+/// True once ADE's memory has been initialized (GWEN-490).
+#[tauri::command]
+pub fn has_memory() -> bool {
+    crate::memory::has_memory()
+}
+
+/// Reads a memory file (`failures.md` / `preferences.md`) for the viewer.
+/// Returns an empty string if the file doesn't exist yet.
+#[tauri::command]
+pub fn read_memory_file(filename: String) -> Result<String, String> {
+    crate::memory::read_memory_file(&filename).map_err(|e| e.to_string())
+}
+
+/// Writes edited memory content back to disk (GWEN-491).
+#[tauri::command]
+pub fn write_memory_file(filename: String, content: String) -> Result<(), String> {
+    crate::memory::write_memory_file(&filename, &content).map_err(|e| e.to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Memory export / import (GWEN-492)
+// ---------------------------------------------------------------------------
+
+/// Zips every `*.md` in the memory dir and writes it to a user-chosen path.
+/// Returns `Ok(false)` if the user cancelled the save dialog.
+#[tauri::command]
+pub async fn export_memory(app: AppHandle) -> Result<bool, String> {
+    use std::io::Write;
+    use tauri_plugin_dialog::DialogExt;
+
+    let dir = crate::memory::memory_dir().map_err(|e| e.to_string())?;
+    let files: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().map(|x| x == "md").unwrap_or(false))
+        .collect();
+
+    let mut zip_buf = Vec::new();
+    {
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut zip_buf));
+        let options = zip::write::SimpleFileOptions::default();
+        for path in &files {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or("bad filename")?
+                .to_string();
+            let content = std::fs::read(path).map_err(|e| e.to_string())?;
+            zip.start_file(name, options).map_err(|e| e.to_string())?;
+            zip.write_all(&content).map_err(|e| e.to_string())?;
+        }
+        zip.finish().map_err(|e| e.to_string())?;
+    }
+
+    let save_path = app
+        .dialog()
+        .file()
+        .add_filter("ZIP", &["zip"])
+        .set_file_name("ade-memory-backup.zip")
+        .blocking_save_file();
+
+    let Some(save_path) = save_path else {
+        return Ok(false); // user cancelled
+    };
+    let path = save_path.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(path, zip_buf).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+/// Picks a `.zip` and extracts its `*.md` entries into the memory dir,
+/// overwriting existing files. Returns `Ok(false)` if the user cancelled.
+#[tauri::command]
+pub async fn import_memory(app: AppHandle) -> Result<bool, String> {
+    use std::io::Read;
+    use tauri_plugin_dialog::DialogExt;
+
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("ZIP", &["zip"])
+        .blocking_pick_file();
+
+    let Some(picked) = picked else {
+        return Ok(false); // user cancelled
+    };
+    let zip_path = picked.into_path().map_err(|e| e.to_string())?;
+
+    let dir = crate::memory::memory_dir().map_err(|e| e.to_string())?;
+    let data = std::fs::read(&zip_path).map_err(|e| e.to_string())?;
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(data)).map_err(|e| e.to_string())?;
+
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
+        let name = file.name().to_string();
+        // Only accept flat `*.md` names — reject paths that would escape the dir.
+        if !name.ends_with(".md") || name.contains(['/', '\\']) || name.contains("..") {
+            continue;
+        }
+        let mut content = Vec::new();
+        file.read_to_end(&mut content).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join(&name), content).map_err(|e| e.to_string())?;
+    }
+
+    Ok(true)
+}
+
+// ---------------------------------------------------------------------------
 // Provider registry + API-key storage (GWEN-464..469)
 // ---------------------------------------------------------------------------
 
