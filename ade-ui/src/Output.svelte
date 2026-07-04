@@ -40,12 +40,12 @@
     flex-direction: column;
     gap: 24px;
     overflow-y: auto;
-    padding: 24px 0;
+    padding: 80px 0 24px;
     flex: 1;
   }
 
   .msg.user {
-    align-self: flex-start;
+    align-self: flex-end;
     width: fit-content;
     max-width: 100%;
     background: var(--card);

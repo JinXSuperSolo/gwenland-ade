@@ -27,6 +27,21 @@
       "M23.197 4.503A6 6 0 0015 2.307a5.973 5.973 0 00-2.995 4.933l5.996.008v.515h-5.996c.039.937.298 1.87.8 2.74a6 6 0 1010.39-6z",
   };
 
+  const COLORS: Record<string, string> = {
+    anthropic: "#d97757",
+    openai: "#10a37f",
+    google: "#4285f4",
+    deepseek: "#4d5bce",
+    qwen: "#615ced",
+    zai: "#0066ff",
+    kimi: "#8560ff",
+    mistral: "#f87000",
+    groq: "#f55036",
+    cohere: "#39594d",
+    perplexity: "#248381",
+    together: "#0b5fed",
+  };
+
   /** Whether a brand mark exists for this provider id. */
   export function hasIcon(id: string): boolean {
     return id in PATHS;
@@ -36,6 +51,7 @@
 <script lang="ts">
   let { provider, size = 16 }: { provider: string; size?: number } = $props();
   const path = $derived(PATHS[provider]);
+  const color = $derived(COLORS[provider] || "currentColor");
 </script>
 
 {#if path}
@@ -43,7 +59,7 @@
     width={size}
     height={size}
     viewBox="0 0 24 24"
-    fill="currentColor"
+    fill={color}
     fill-rule="evenodd"
     aria-hidden="true"
   >

@@ -10,11 +10,12 @@
   <Titlebar />
   <Sidebar />
   <main>
-    <Composer />
+    {#if ui.settingsOpen}
+      <Settings onClose={() => (ui.settingsOpen = false)} />
+    {:else}
+      <Composer />
+    {/if}
   </main>
-  {#if ui.settingsOpen}
-    <Settings onClose={() => (ui.settingsOpen = false)} />
-  {/if}
 </div>
 
 <style>

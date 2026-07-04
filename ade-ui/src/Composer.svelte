@@ -270,8 +270,8 @@
   }
 
   .btn-ghost:hover {
-    background: var(--secondary);
-    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
   }
 
   .btn-send {
@@ -325,7 +325,8 @@
   }
 
   .chip:hover {
-    background: var(--secondary);
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
   }
 
   .hint {

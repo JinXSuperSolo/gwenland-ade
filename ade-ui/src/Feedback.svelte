@@ -3,6 +3,11 @@
   import CheckIcon from "phosphor-svelte/lib/CheckIcon";
   import XIcon from "phosphor-svelte/lib/XIcon";
   import PencilSimpleIcon from "phosphor-svelte/lib/PencilSimpleIcon";
+  import CopyIcon from "phosphor-svelte/lib/CopyIcon";
+  import PlayIcon from "phosphor-svelte/lib/PlayIcon";
+  import ThumbsUpIcon from "phosphor-svelte/lib/ThumbsUpIcon";
+  import ThumbsDownIcon from "phosphor-svelte/lib/ThumbsDownIcon";
+  import ArrowClockwiseIcon from "phosphor-svelte/lib/ArrowClockwiseIcon";
 
   // The prompt that produced `output`, needed for reflection context (GWEN-485).
   let { prompt, output }: { prompt: string; output: string } = $props();
@@ -63,19 +68,20 @@
   </div>
 {:else}
   <div class="feedback">
-    <button class="fb" aria-label="Accept" title="Accept" onclick={() => send("accept")}>
-      <CheckIcon size={14} weight="bold" />
+    <button class="fb" aria-label="Copy" title="Copy">
+      <CopyIcon size={14} />
     </button>
-    <button class="fb" aria-label="Reject" title="Reject" onclick={() => send("reject")}>
-      <XIcon size={14} weight="bold" />
+    <button class="fb" aria-label="Play" title="Read Aloud">
+      <PlayIcon size={14} />
     </button>
-    <button
-      class="fb"
-      aria-label="Tweak"
-      title="Suggest a correction"
-      onclick={() => (phase = "tweaking")}
-    >
-      <PencilSimpleIcon size={14} />
+    <button class="fb" aria-label="Good Response" title="Good Response">
+      <ThumbsUpIcon size={14} />
+    </button>
+    <button class="fb" aria-label="Bad Response" title="Bad Response">
+      <ThumbsDownIcon size={14} />
+    </button>
+    <button class="fb" aria-label="Regenerate" title="Regenerate">
+      <ArrowClockwiseIcon size={14} />
     </button>
   </div>
 {/if}

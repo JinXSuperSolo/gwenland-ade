@@ -64,10 +64,8 @@
   const otherRows = $derived(rows.filter((r) => !PRIMARY.includes(r.provider.id)));
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="scrim" onclick={onClose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="panel" onclick={(e) => e.stopPropagation()}>
+<div class="settings-page">
+  <div class="panel">
     <header>
       <h2>API Keys</h2>
       <button class="close" aria-label="Close" onclick={onClose}>
@@ -134,28 +132,23 @@
 </div>
 
 <style>
-  .scrim {
-    position: fixed;
+  .settings-page {
+    position: absolute;
     inset: 0;
-    z-index: 100;
-    background: color-mix(in srgb, var(--background) 60%, transparent);
-    backdrop-filter: blur(2px);
+    z-index: 10;
+    background: var(--background);
     display: flex;
-    align-items: center;
     justify-content: center;
     padding: 24px;
+    overflow-y: auto;
   }
 
   .panel {
     width: 100%;
-    max-width: 560px;
-    max-height: 80vh;
-    background: var(--card);
-    border-radius: calc(var(--radius) + 6px);
-    box-shadow: var(--shadow-2xl);
+    max-width: 680px;
+    background: transparent;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
   header {
@@ -189,12 +182,11 @@
   }
 
   .close:hover {
-    background: var(--secondary);
-    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
   }
 
   .body {
-    overflow-y: auto;
     padding: 4px 20px 12px;
     flex: 1;
   }
